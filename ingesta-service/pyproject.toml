@@ -5,6 +5,14 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
 
+# N818 exige que las excepciones terminen en "Error". El codigo del proyecto
+# esta escrito en castellano y el nucleo en PHP nombra sus excepciones del mismo
+# modo (ErrorDeValidacion, AlertaYaAtendida, RolNoAutorizado). Anadir un sufijo
+# ingles solo en Python romperia esa correspondencia sin ganar claridad.
+ignore = ["N818"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --cov=app --cov-report=term-missing"
+addopts = "-q --cov=app --cov-report=term-missing --cov-fail-under=80"
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"

@@ -115,9 +115,26 @@ Consultas con presupuesto de tiempo: [`docs/arquitectura/consultas-criticas.md`]
 
 ## 5. Simulación de sensores
 
-🔜 *Fase 6.* `scripts/simular_sensores.py` publicará lecturas en el broker para
-provocar escenarios normales, de advertencia, críticos y de corte de enlace sin
-necesidad de hardware físico.
+El servicio de ingesta se suscribe a `piscigranja/{estanque}/{parametro}`. Para
+publicar una lectura a mano y ver la cadena completa en acción:
+
+```bash
+docker compose exec mosquitto mosquitto_pub -h 127.0.0.1 -t piscigranja/EST-03/od_mgl -m '{"codigo_nodo":"N-07","medido_en":"2026-09-18T17:42:10-05:00","valor":4.2}'
+```
+
+Estado del servicio y del búfer:
+
+```bash
+curl http://localhost:8001/metricas
+```
+
+`pendientes` es el indicador que revela un corte de enlace: si crece de forma
+sostenida, las lecturas se están acumulando porque el núcleo no responde. El
+búfer es un SQLite en un volumen con nombre, de modo que sobrevive al reinicio
+del contenedor (RNF-02).
+
+🔜 *Fase 6.* `scripts/simular_sensores.py` automatizará los escenarios de
+advertencia, crítico y corte de enlace sin hardware físico.
 
 ---
 
@@ -146,8 +163,18 @@ cd backend-core && vendor/bin/pint --test && vendor/bin/phpstan analyse --memory
 npx @stoplight/spectral-cli lint docs/openapi.yaml --ruleset .spectral.yaml
 ```
 
-🔜 *Fases 4 a 6.* pytest para el servicio de ingesta, pruebas del tablero y la
-suite de integración que recorre la cadena completa.
+Servicio de ingesta:
+
+```bash
+docker compose exec -T ingesta-service python -m pytest -q
+```
+
+```bash
+docker compose exec -T ingesta-service python -m ruff check .
+```
+
+🔜 *Fases 5 y 6.* Pruebas del tablero y suite de integración de la cadena
+completa.
 
 ## 6.1 Contrato de la API
 
