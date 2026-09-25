@@ -72,8 +72,10 @@ docker compose up -d --build
 | Servicio | URL | Puerto |
 |---|---|---|
 | Tablero | http://localhost:3000 | 3000 |
-| API / Swagger UI | http://localhost:8000 | 8000 |
-| Broker MQTT | `mqtt://localhost:1883` | 1883 |
+| API | http://localhost:8000/api/v1 | 8000 |
+| Correo capturado (Mailpit) | http://localhost:8025 | 8025 |
+| Broker MQTT (servicios) | `mqtt://localhost:1883` | 1883 |
+| Broker MQTT (navegador) | `ws://localhost:9001` | 9001 |
 | PostgreSQL | `localhost:5432` | 5432 |
 
 Comprobar el estado de los contenedores:
@@ -121,9 +123,48 @@ necesidad de hardware físico.
 
 ## 6. Ejecución de pruebas
 
-🔜 *Fases 2 a 6.* Suites por módulo: PHPUnit para el núcleo hexagonal, pytest
-para el servicio de ingesta y las pruebas del tablero, más la suite de
-integración que recorre la cadena completa y verifica los casos CP-01 a CP-10.
+```bash
+./scripts/preparar_bd_pruebas.sh
+```
+
+```bash
+docker compose exec -T api-core php vendor/bin/phpunit
+```
+
+| Suite | Contenido | Requiere base de datos |
+|---|---|---|
+| `Unit` | Núcleo hexagonal: entidades, `ReglaUmbral` y casos de uso sobre dobles en memoria | No |
+| `Feature` | Los seis endpoints contra PostgreSQL real, en la base `sippt_test` | Sí |
+
+Calidad:
+
+```bash
+cd backend-core && vendor/bin/pint --test && vendor/bin/phpstan analyse --memory-limit=1G
+```
+
+```bash
+npx @stoplight/spectral-cli lint docs/openapi.yaml --ruleset .spectral.yaml
+```
+
+🔜 *Fases 4 a 6.* pytest para el servicio de ingesta, pruebas del tablero y la
+suite de integración que recorre la cadena completa.
+
+## 6.1 Contrato de la API
+
+Los seis endpoints de la Tabla 2 del informe están especificados en
+[`docs/openapi.yaml`](docs/openapi.yaml) (OpenAPI 3.0, validado con Spectral).
+
+| Endpoint | Método | Historia | Códigos |
+|---|---|---|---|
+| `/api/v1/lecturas` | POST | HU-02 | 201 · 207 · 422 |
+| `/api/v1/estanques` | GET | HU-03 | 200 |
+| `/api/v1/estanques` | POST | HU-01 | 201 · 422 |
+| `/api/v1/estanques/{id}/lecturas` | GET | HU-03 | 200 |
+| `/api/v1/alertas` | GET | HU-04 | 200 |
+| `/api/v1/alertas/{id}/atencion` | POST | HU-05 | 201 · 409 · 403 |
+
+Autenticación por token Bearer (`POST /api/v1/auth/login`). Usuarios semilla:
+`operador@`, `tecnico@` y `veterinario@sippt.local`, contraseña `sippt2026`.
 
 ---
 

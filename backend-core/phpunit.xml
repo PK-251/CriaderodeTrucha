@@ -9,9 +9,14 @@
          beStrictAboutOutputDuringTests="true">
 
     <testsuites>
+        <!-- Sin base de datos, sin broker, sin framework: se ejecutan en
+             milisegundos y son las que vigilan la pureza del núcleo. -->
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
+
+        <!-- Contra PostgreSQL real, en la base sippt_test. Prepararla con
+             ./scripts/preparar_bd_pruebas.sh -->
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
@@ -29,4 +34,17 @@
             <text outputFile="php://stdout" showOnlySummary="false"/>
         </report>
     </coverage>
+
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_DEBUG" value="true"/>
+        <env name="APP_TIMEZONE" value="UTC"/>
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_DATABASE" value="sippt_test"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+    </php>
 </phpunit>

@@ -1,0 +1,7 @@
+# Reglas de validacion del contrato OpenAPI.
+extends: ["spectral:oas"]
+
+rules:
+  # La descripcion de los servidores no aporta nada en un contrato de un solo
+  # entorno local; el resto del conjunto oas se mantiene intacto.
+  oas3-api-servers: warn
