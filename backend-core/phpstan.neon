@@ -1,10 +1,18 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
 parameters:
     level: 6
     paths:
         - src
+        - app
         - tests
     tmpDir: .phpstan.cache
 
-    # El núcleo de dominio no puede depender del framework. PHPStan no verifica
-    # esa regla por sí solo, de modo que la comprueba tests/Unit/PurezaDelNucleoTest
-    # y, en la Fase 7, un paso explícito del pipeline.
+    # Larastan resuelve las propiedades magicas de Eloquent. Sin el, el analisis
+    # en nivel 6 reporta como error cada acceso a una columna, que es ruido y no
+    # un defecto: el modelo si las expone en tiempo de ejecucion.
+
+    # El nucleo de dominio no puede depender del framework. PHPStan no verifica
+    # esa regla por si solo, de modo que la comprueba tests/Unit/PurezaDelNucleoTest
+    # y, en la Fase 7, un paso explicito del pipeline.

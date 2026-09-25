@@ -46,12 +46,39 @@ services:
       TZ: ${TZ}
     ports:
       - "${MQTT_HOST_PORT:-1883}:1883"
+      # Listener WebSocket que consume el tablero desde el navegador
+      - "${MQTT_WS_PORT:-9001}:9001"
     volumes:
       - ./infra/mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./infra/mosquitto/data:/mosquitto/data
       - ./infra/mosquitto/log:/mosquitto/log
     healthcheck:
       test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -t health -m ok -q 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks: [sippt-red]
+
+
+  # ── Receptor de correo para desarrollo · Mailpit ───────────────────────────
+  # Captura los correos de alerta critica en lugar de entregarlos. Permite
+  # comprobar CP-07 de extremo a extremo —que una alerta critica genera el
+  # aviso por correo— sin configurar un servidor SMTP real ni arriesgarse a
+  # enviar correo desde un entorno de pruebas.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: sippt-mailpit
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_WEB_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -93,8 +120,10 @@ services:
     depends_on:
       postgres-timescale:
         condition: service_healthy
+      mailpit:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "php -r 'exit(@file_get_contents(\"http://127.0.0.1:8000/health\") === false ? 1 : 0);'"]
+      test: ["CMD-SHELL", "php -r 'exit(@file_get_contents(\"http://127.0.0.1:8000/up\") === false ? 1 : 0);'"]
       interval: 10s
       timeout: 5s
       retries: 5

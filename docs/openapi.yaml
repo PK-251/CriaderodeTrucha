@@ -1,0 +1,799 @@
+openapi: 3.0.3
+
+info:
+  title: SIPPT — API del Primer Incremento (PMV)
+  version: 0.1.0-pmv
+  description: |
+    Contratos REST del Sistema Inteligente para la Optimización de la Producción
+    Piscícola de Trucha, Primer Incremento.
+
+    Cubre las cinco historias del PMV: gestión de estanques y umbrales (HU-01),
+    ingesta de lecturas desde los nodos IoT (HU-02), estado del tablero (HU-03),
+    alertas por umbral (HU-04) y registro de la intervención (HU-05).
+
+    **Autenticación.** Todos los recursos salvo el inicio de sesión exigen un
+    token Bearer. El token se obtiene en `POST /auth/login` y lleva asociado el
+    rol del usuario, que determina qué operaciones puede ejecutar.
+
+    **Husos horarios.** Toda marca temporal viaja en ISO 8601 con
+    desplazamiento explícito. El instante de una medición lo fija el nodo, no
+    el servidor: cuando el gateway reenvía su búfer tras una caída de enlace,
+    la lectura conserva el momento real en que se midió.
+  contact:
+    name: Equipo SIPPT — Universidad Continental
+  license:
+    name: Uso académico
+    url: https://www.continental.edu.pe
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Entorno local de desarrollo
+
+tags:
+  - name: Autenticación
+    description: Emisión y revocación de tokens (RF-09)
+  - name: Estanques
+    description: Catálogo, umbrales y estado del tablero (HU-01, HU-03)
+  - name: Lecturas
+    description: Ingesta desde los nodos sensores (HU-02)
+  - name: Alertas
+    description: Condiciones de riesgo y su atención (HU-04, HU-05)
+
+security:
+  - TokenBearer: []
+
+paths:
+
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Emitir un token de acceso
+      description: |
+        Valida las credenciales y devuelve un token Bearer asociado al rol del
+        usuario. Es el único recurso que no exige autenticación previa.
+
+        La comprobación de la contraseña se ejecuta también cuando el correo no
+        existe, para que el tiempo de respuesta no revele qué cuentas están
+        registradas.
+      security: []
+      operationId: iniciarSesion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: tecnico@sippt.local
+                password:
+                  type: string
+                  format: password
+                  example: sippt2026
+      responses:
+        '201':
+          description: Token emitido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datos:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: 1|d3GbstQ0cfIXzhVp7gsw1C5I0yrXeHZBRPfi
+                      usuario:
+                        $ref: '#/components/schemas/Usuario'
+        '401':
+          $ref: '#/components/responses/CredencialesInvalidas'
+
+  /auth/logout:
+    post:
+      tags: [Autenticación]
+      summary: Revocar el token en uso
+      description: |
+        Invalida el token con el que se hizo la petición. El resto de tokens del
+        usuario siguen vigentes, de modo que cerrar sesión en el tablero no
+        interrumpe al servicio de ingesta.
+      operationId: cerrarSesion
+      responses:
+        '204':
+          description: Token revocado
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /auth/yo:
+    get:
+      tags: [Autenticación]
+      summary: Datos del usuario autenticado
+      description: |
+        Devuelve la identidad y el rol asociados al token. El tablero la usa
+        para decidir qué acciones mostrar: el veterinario no ve el formulario de
+        atención de alertas porque no puede cerrarlas.
+      operationId: usuarioActual
+      responses:
+        '200':
+          description: Usuario autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datos:
+                    $ref: '#/components/schemas/Usuario'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /lecturas:
+    post:
+      tags: [Lecturas]
+      summary: Ingesta por lote de lecturas (HU-02)
+      description: |
+        Recibe el lote acumulado por el servicio de ingesta. Cada lectura se
+        califica contra el rango físico de su sensor antes de persistirse
+        (RF-04): un valor imposible se marca como descartada, porque delata un
+        instrumento averiado y no una condición del agua.
+
+        Las lecturas repetidas se absorben en silencio. El reenvío del búfer
+        tras una caída de enlace no es un error y no puede producir duplicados
+        ni repetir alertas ya generadas (RNF-02).
+
+        Requiere rol `tecnico`.
+      operationId: registrarLecturas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lecturas]
+              properties:
+                lecturas:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/LecturaEntrante'
+      responses:
+        '201':
+          description: Lote aceptado por completo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoIngesta'
+        '207':
+          description: |
+            Lote aceptado en parte: alguna lectura se almacenó marcada como
+            descartada por calidad. El emisor no debe reintentarla.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoIngesta'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/RolNoAutorizado'
+        '422':
+          $ref: '#/components/responses/ErrorDeValidacion'
+
+  /estanques:
+    get:
+      tags: [Estanques]
+      summary: Estado actual de los estanques (HU-03)
+      description: |
+        Devuelve cada estanque activo con su semáforo, el último valor de cada
+        parámetro y la antigüedad de esa medición.
+
+        Un estanque cuyo parámetro no reporta desde hace más de
+        `sin_comunicacion_min` minutos se marca como sin comunicación. La
+        antigüedad se calcula sobre el instante de la medición y no sobre el de
+        recepción: si el gateway retuvo lecturas en su búfer, el estanque estuvo
+        efectivamente incomunicado durante ese tiempo.
+
+        Esta operación tiene presupuesto de tiempo: RNF-03 exige resolver hasta
+        20 estanques en menos de 3 segundos.
+      operationId: estadoDeEstanques
+      parameters:
+        - name: sin_comunicacion_min
+          in: query
+          description: Minutos sin reportar tras los que se marca sin comunicación
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 15
+      responses:
+        '200':
+          description: Estado de los estanques
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EstadoEstanque'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+    post:
+      tags: [Estanques]
+      summary: Alta de estanque con sus umbrales (HU-01)
+      description: |
+        Registra un estanque y los rangos aceptables de sus parámetros.
+
+        `severidad_critica` es un margen **más allá** del rango aceptable, no un
+        valor absoluto: una alerta es crítica cuando el valor cae por debajo de
+        `min_aceptable − severidad_critica` o supera
+        `max_aceptable + severidad_critica`. Se modela así porque el pH y la
+        temperatura son peligrosos en ambas direcciones.
+
+        Requiere rol `tecnico`.
+      operationId: crearEstanque
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstanqueEntrante'
+      responses:
+        '201':
+          description: Estanque creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datos:
+                    $ref: '#/components/schemas/EstanqueCreado'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/RolNoAutorizado'
+        '422':
+          $ref: '#/components/responses/ErrorDeValidacion'
+
+  /estanques/{id}/lecturas:
+    get:
+      tags: [Estanques]
+      summary: Serie temporal de un estanque (HU-03)
+      description: Alimenta el gráfico de tendencia del tablero. Solo devuelve lecturas de calidad válida.
+      operationId: serieDeEstanque
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: parametro
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Parametro'
+        - name: desde
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: hasta
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: pagina
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: por_pagina
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5000
+            default: 500
+      responses:
+        '200':
+          description: Serie temporal paginada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PuntoDeSerie'
+                  paginacion:
+                    $ref: '#/components/schemas/Paginacion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '422':
+          $ref: '#/components/responses/ErrorDeValidacion'
+
+  /alertas:
+    get:
+      tags: [Alertas]
+      summary: Listado de alertas (HU-04)
+      description: Ordenado por fecha de generación descendente.
+      operationId: listarAlertas
+      parameters:
+        - name: estado
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/EstadoAlerta'
+        - name: severidad
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Severidad'
+      responses:
+        '200':
+          description: Alertas encontradas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alerta'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '422':
+          $ref: '#/components/responses/ErrorDeValidacion'
+
+  /alertas/{id}/atencion:
+    post:
+      tags: [Alertas]
+      summary: Registrar la intervención y cerrar la alerta (HU-05)
+      description: |
+        Deja constancia de qué se hizo frente a la alerta y la cierra.
+
+        Una alerta no se cierra sola cuando el parámetro vuelve a su rango: el
+        valor del sistema está en registrar la intervención, que además es la
+        fuente de etiquetado del histórico para incrementos posteriores.
+
+        Requiere rol `operador` o `tecnico`. El veterinario diagnostica pero no
+        ejecuta la intervención en el estanque.
+      operationId: atenderAlerta
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accion]
+              properties:
+                accion:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                  example: Aireacion manual activada
+                observacion:
+                  type: string
+                  nullable: true
+                  example: Se restablecio el aireador del estanque EST-03.
+      responses:
+        '201':
+          description: Intervención registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datos:
+                    $ref: '#/components/schemas/Atencion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/RolNoAutorizado'
+        '409':
+          description: |
+            La alerta ya fue atendida. La respuesta incluye el registro
+            existente para que el tablero lo muestre en lugar de duplicarlo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: alerta_ya_atendida
+                  mensaje:
+                    type: string
+                  datos:
+                    $ref: '#/components/schemas/Atencion'
+        '422':
+          $ref: '#/components/responses/ErrorDeValidacion'
+
+components:
+
+  securitySchemes:
+    TokenBearer:
+      type: http
+      scheme: bearer
+      description: Token emitido por `POST /auth/login`.
+
+  responses:
+
+    NoAutenticado:
+      description: Falta el token Bearer o no es válido
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: no_autenticado
+              mensaje:
+                type: string
+
+    CredencialesInvalidas:
+      description: El correo o la contraseña no son correctos
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: credenciales_invalidas
+              mensaje:
+                type: string
+
+    RolNoAutorizado:
+      description: El rol autenticado no puede ejecutar esta operación
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: rol_no_autorizado
+              mensaje:
+                type: string
+
+    ErrorDeValidacion:
+      description: Entrada inválida, con el detalle por campo
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: validacion
+              detalle:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    campo:
+                      type: string
+                      example: min_aceptable
+                    mensaje:
+                      type: string
+                      example: El minimo aceptable debe ser menor que el maximo aceptable.
+
+  schemas:
+
+    Parametro:
+      type: string
+      description: |
+        Parámetros vigilados por el PMV. El amonio (`nh4_mgl`) existe en el
+        esquema de datos pero pertenece al Incremento 2 y la API lo rechaza.
+      enum: [od_mgl, temp_c, ph]
+
+    Severidad:
+      type: string
+      enum: [advertencia, critica]
+
+    EstadoAlerta:
+      type: string
+      enum: [abierta, atendida]
+
+    CalidadLectura:
+      type: string
+      enum: [valida, dudosa, descartada]
+
+    Rol:
+      type: string
+      enum: [operador, tecnico, veterinario]
+
+    Semaforo:
+      type: string
+      enum: [normal, advertencia, critico]
+
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+        rol:
+          $ref: '#/components/schemas/Rol'
+
+    LecturaEntrante:
+      type: object
+      required: [codigo_nodo, medido_en, valor]
+      properties:
+        codigo_nodo:
+          type: string
+          example: N-07
+        medido_en:
+          type: string
+          format: date-time
+          description: Instante de la medición según el nodo, nunca el servidor.
+          example: '2026-09-18T17:42:10-05:00'
+        valor:
+          type: number
+          format: double
+          example: 4.2
+
+    ResultadoIngesta:
+      type: object
+      properties:
+        aceptadas:
+          type: integer
+        descartadas:
+          type: integer
+        duplicadas:
+          type: integer
+          description: Lecturas que ya existían; reenvío del búfer, no un error.
+        alertas:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              estanque_id:
+                type: integer
+              parametro:
+                $ref: '#/components/schemas/Parametro'
+              severidad:
+                $ref: '#/components/schemas/Severidad'
+        detalle_descartadas:
+          type: array
+          items:
+            type: object
+            properties:
+              codigo_nodo:
+                type: string
+              medido_en:
+                type: string
+                format: date-time
+              calidad:
+                $ref: '#/components/schemas/CalidadLectura'
+
+    UmbralEntrante:
+      type: object
+      required: [parametro, min_aceptable, max_aceptable, severidad_critica]
+      properties:
+        parametro:
+          $ref: '#/components/schemas/Parametro'
+        min_aceptable:
+          type: number
+          format: double
+          example: 5.5
+        max_aceptable:
+          type: number
+          format: double
+          example: 12.0
+        severidad_critica:
+          type: number
+          format: double
+          description: Margen más allá del rango aceptable a partir del cual la alerta es crítica.
+          example: 0.5
+
+    EstanqueEntrante:
+      type: object
+      required: [codigo, volumen_m3, biomasa_kg, etapa]
+      properties:
+        codigo:
+          type: string
+          maxLength: 20
+          example: EST-05
+        volumen_m3:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          example: 150.0
+        biomasa_kg:
+          type: number
+          format: double
+          minimum: 0
+          example: 1650.0
+        etapa:
+          type: string
+          enum: [alevino, juvenil, engorde, cosecha]
+        umbrales:
+          type: array
+          items:
+            $ref: '#/components/schemas/UmbralEntrante'
+
+    EstanqueCreado:
+      type: object
+      properties:
+        id:
+          type: integer
+        codigo:
+          type: string
+        volumen_m3:
+          type: number
+          format: double
+        biomasa_kg:
+          type: number
+          format: double
+        etapa:
+          type: string
+        umbrales:
+          type: array
+          items:
+            $ref: '#/components/schemas/UmbralEntrante'
+
+    EstadoParametro:
+      type: object
+      properties:
+        parametro:
+          $ref: '#/components/schemas/Parametro'
+        etiqueta:
+          type: string
+          example: Oxígeno disuelto
+        unidad:
+          type: string
+          example: mg/L
+        ultimo_valor:
+          type: number
+          format: double
+          nullable: true
+        medido_en:
+          type: string
+          format: date-time
+          nullable: true
+        antiguedad_segundos:
+          type: integer
+          nullable: true
+        sin_comunicacion:
+          type: boolean
+        min_aceptable:
+          type: number
+          format: double
+          nullable: true
+        max_aceptable:
+          type: number
+          format: double
+          nullable: true
+        severidad_alerta:
+          allOf:
+            - $ref: '#/components/schemas/Severidad'
+          nullable: true
+
+    EstadoEstanque:
+      type: object
+      properties:
+        id:
+          type: integer
+        codigo:
+          type: string
+        volumen_m3:
+          type: number
+          format: double
+        biomasa_kg:
+          type: number
+          format: double
+        etapa:
+          type: string
+        semaforo:
+          $ref: '#/components/schemas/Semaforo'
+        sin_comunicacion:
+          type: boolean
+        parametros:
+          type: array
+          items:
+            $ref: '#/components/schemas/EstadoParametro'
+
+    PuntoDeSerie:
+      type: object
+      properties:
+        parametro:
+          $ref: '#/components/schemas/Parametro'
+        valor:
+          type: number
+          format: double
+        medido_en:
+          type: string
+          format: date-time
+
+    Paginacion:
+      type: object
+      properties:
+        pagina:
+          type: integer
+        por_pagina:
+          type: integer
+        total:
+          type: integer
+
+    Alerta:
+      type: object
+      properties:
+        id:
+          type: integer
+        estanque_id:
+          type: integer
+        estanque_codigo:
+          type: string
+        parametro:
+          $ref: '#/components/schemas/Parametro'
+        etiqueta:
+          type: string
+        unidad:
+          type: string
+        severidad:
+          $ref: '#/components/schemas/Severidad'
+        estado:
+          $ref: '#/components/schemas/EstadoAlerta'
+        valor_detectado:
+          type: number
+          format: double
+          description: Valor que originó la alerta.
+        umbral_violado:
+          type: number
+          format: double
+        ultimo_valor:
+          type: number
+          format: double
+          description: Valor más reciente fuera de rango mientras la alerta sigue abierta.
+        generada_en:
+          type: string
+          format: date-time
+        actualizada_en:
+          type: string
+          format: date-time
+
+    Atencion:
+      type: object
+      properties:
+        id:
+          type: integer
+        alerta_id:
+          type: integer
+        usuario_id:
+          type: integer
+        accion:
+          type: string
+        observacion:
+          type: string
+          nullable: true
+        registrada_en:
+          type: string
+          format: date-time
