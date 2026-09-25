@@ -1,0 +1,176 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SIPPT — Primer Incremento (PMV) · v0.1.0-pmv
+#
+# Cadena del PMV:
+#   nodo sensor → mosquitto → ingesta-service → api-core → postgres-timescale
+#                                                    ↓
+#                                                dashboard
+#
+# Uso:  cp .env.example .env  &&  docker compose up -d --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: ${COMPOSE_PROJECT_NAME:-sippt}
+
+services:
+
+  # ── Base de datos · PostgreSQL 16 + TimescaleDB ────────────────────────────
+  postgres-timescale:
+    image: timescale/timescaledb:2.17.2-pg16
+    container_name: sippt-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres-datos:/var/lib/postgresql/data
+      # Migraciones V1–V4 y datos semilla; se cablean en la Fase 1.
+      - ./db:/db:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [sippt-red]
+
+  # ── Broker MQTT · Mosquitto ────────────────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: sippt-mosquitto
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    ports:
+      - "${MQTT_HOST_PORT:-1883}:1883"
+    volumes:
+      - ./infra/mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./infra/mosquitto/data:/mosquitto/data
+      - ./infra/mosquitto/log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -t health -m ok -q 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks: [sippt-red]
+
+  # ── Núcleo · api-core (Laravel 11 / PHP 8.3, hexagonal) ────────────────────
+  api-core:
+    build:
+      context: ./backend-core
+      dockerfile: Dockerfile
+    container_name: sippt-api-core
+    restart: unless-stopped
+    environment:
+      APP_NAME: ${APP_NAME}
+      APP_ENV: ${APP_ENV}
+      APP_DEBUG: ${APP_DEBUG}
+      APP_KEY: ${APP_KEY}
+      APP_URL: ${APP_URL}
+      DB_CONNECTION: ${DB_CONNECTION}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      MAIL_MAILER: ${MAIL_MAILER}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+      ALERTA_CRITICA_DESTINO: ${ALERTA_CRITICA_DESTINO}
+      TZ: ${TZ}
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    volumes:
+      - ./backend-core:/app
+      - /app/vendor
+    depends_on:
+      postgres-timescale:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@file_get_contents(\"http://127.0.0.1:8000/health\") === false ? 1 : 0);'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks: [sippt-red]
+
+  # ── Ingesta IoT · Python 3.12 / FastAPI / paho-mqtt ────────────────────────
+  ingesta-service:
+    build:
+      context: ./ingesta-service
+      dockerfile: Dockerfile
+    container_name: sippt-ingesta
+    restart: unless-stopped
+    environment:
+      MQTT_HOST: ${MQTT_HOST}
+      MQTT_PORT: ${MQTT_PORT}
+      MQTT_TOPIC_BASE: ${MQTT_TOPIC_BASE}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID}
+      MQTT_QOS: ${MQTT_QOS}
+      CORE_API_URL: ${CORE_API_URL}
+      CORE_API_TOKEN: ${CORE_API_TOKEN}
+      INGESTA_BATCH_SIZE: ${INGESTA_BATCH_SIZE}
+      INGESTA_BATCH_INTERVAL_S: ${INGESTA_BATCH_INTERVAL_S}
+      INGESTA_BUFFER_PATH: ${INGESTA_BUFFER_PATH}
+      INGESTA_MAX_REINTENTOS: ${INGESTA_MAX_REINTENTOS}
+      TZ: ${TZ}
+    ports:
+      - "${INGESTA_HOST_PORT:-8001}:8001"
+    volumes:
+      - ./ingesta-service:/srv
+      # Búfer persistente: sobrevive al reinicio del contenedor (RNF-02)
+      - ingesta-buffer:/data
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      api-core:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/health',timeout=3).status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks: [sippt-red]
+
+  # ── Tablero · Next.js 14 / React 18 / TypeScript ───────────────────────────
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: sippt-dashboard
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
+      NEXT_PUBLIC_SIN_COMUNICACION_MIN: ${NEXT_PUBLIC_SIN_COMUNICACION_MIN}
+      TZ: ${TZ}
+    ports:
+      - "${DASHBOARD_HOST_PORT:-3000}:3000"
+    volumes:
+      - ./dashboard:/app
+      - /app/node_modules
+    depends_on:
+      api-core:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks: [sippt-red]
+
+volumes:
+  postgres-datos:
+  ingesta-buffer:
+
+networks:
+  sippt-red:
+    driver: bridge

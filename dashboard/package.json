@@ -1,0 +1,12 @@
+{
+  "name": "sippt-dashboard",
+  "version": "0.1.0-pmv",
+  "private": true,
+  "description": "Tablero operativo del PMV — Sistema Inteligente para la Optimización de la Producción Piscícola de Trucha",
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "andamiaje": "node server-andamiaje.mjs"
+  }
+}

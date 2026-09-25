@@ -1,0 +1,78 @@
+# ── Entorno ──────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+
+# ── PHP / Laravel (backend-core) ─────────────────────────────────────────────
+/backend-core/vendor/
+/backend-core/storage/*.key
+/backend-core/storage/app/*
+/backend-core/storage/framework/cache/*
+/backend-core/storage/framework/sessions/*
+/backend-core/storage/framework/testing/*
+/backend-core/storage/framework/views/*
+/backend-core/storage/logs/*
+/backend-core/bootstrap/cache/*
+/backend-core/.phpunit.result.cache
+/backend-core/.phpunit.cache/
+/backend-core/coverage/
+/backend-core/clover.xml
+/backend-core/.php-cs-fixer.cache
+/backend-core/.phpstan.cache/
+!**/storage/**/.gitignore
+
+# ── Python (ingesta-service) ─────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+/ingesta-service/.venv/
+/ingesta-service/venv/
+/ingesta-service/*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+# Búfer local persistente del servicio de ingesta
+/ingesta-service/data/
+*.sqlite3
+*.sqlite3-journal
+
+# ── Node / Next.js (dashboard) ───────────────────────────────────────────────
+node_modules/
+/dashboard/.next/
+/dashboard/out/
+/dashboard/build/
+/dashboard/.turbo/
+/dashboard/coverage/
+/dashboard/next-env.d.ts
+.npm
+.eslintcache
+*.tsbuildinfo
+
+# ── Docker / infraestructura ─────────────────────────────────────────────────
+/infra/mosquitto/data/*
+/infra/mosquitto/log/*
+!/infra/mosquitto/data/.gitkeep
+!/infra/mosquitto/log/.gitkeep
+
+# ── Sistema operativo ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+
+# ── Editores ─────────────────────────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# ── Artefactos de pruebas y reportes ─────────────────────────────────────────
+/reports/
+*.log
