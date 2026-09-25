@@ -86,8 +86,10 @@ services:
     ports:
       - "${API_HOST_PORT:-8000}:8000"
     volumes:
+      # vendor/ NO se enmascara con un volumen anónimo: las dependencias se
+      # instalan con Composer en el anfitrión y deben ser las mismas que ve el
+      # contenedor, de modo que las pruebas midan el código que se despliega.
       - ./backend-core:/app
-      - /app/vendor
     depends_on:
       postgres-timescale:
         condition: service_healthy
