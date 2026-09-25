@@ -1,0 +1,10 @@
+parameters:
+    level: 6
+    paths:
+        - src
+        - tests
+    tmpDir: .phpstan.cache
+
+    # El núcleo de dominio no puede depender del framework. PHPStan no verifica
+    # esa regla por sí solo, de modo que la comprueba tests/Unit/PurezaDelNucleoTest
+    # y, en la Fase 7, un paso explícito del pipeline.
