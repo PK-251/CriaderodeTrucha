@@ -86,9 +86,28 @@ docker compose ps
 
 ## 4. Base de datos
 
-🔜 *Fase 1.* Migraciones numeradas `V1__esquema_pmv.sql` … `V4__retencion.sql`
-en `db/migrations/`, y datos semilla en `db/seeds/` con 4 estanques, sus
-umbrales, sus sensores y 30 días de lecturas simuladas.
+PostgreSQL 16 + TimescaleDB. Migraciones numeradas, con su reversión.
+
+```bash
+./scripts/migrar.sh --seed      # aplica V1–V4 y carga los datos semilla
+./scripts/revertir.sh           # revierte U4–U1 y deja la base vacía
+```
+
+| Migración | Contenido |
+|---|---|
+| `V1__esquema_pmv.sql` | 3 tipos enumerados, 7 tablas, hypertable `lectura`, `idx_lectura_reciente` |
+| `V2__indices.sql` | Índices de soporte al tablero y al panel de alertas |
+| `V3__auditoria.sql` | Columnas de auditoría y disparador de marca temporal (RNF-04) |
+| `V4__retencion.sql` | Fragmentos de 30 días, compresión a los 90 días, retención de 36 meses |
+
+**Datos semilla** — 3 usuarios (uno por rol), 4 estanques en distintas etapas
+productivas, 12 umbrales, 12 sensores y **103 692 lecturas** que cubren 30 días
+con ciclo diurno realista. `EST-03` reproduce el escenario del informe: umbral
+mínimo de oxígeno disuelto 5.5 mg/L con margen crítico 0.5, de modo que el
+límite crítico es exactamente 5.0 (casos CP-06 y CP-07).
+
+Diagrama entidad-relación: [`docs/arquitectura/er-pmv.md`](docs/arquitectura/er-pmv.md).
+Consultas con presupuesto de tiempo: [`docs/arquitectura/consultas-criticas.md`](docs/arquitectura/consultas-criticas.md).
 
 ---
 
