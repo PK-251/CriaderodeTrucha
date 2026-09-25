@@ -173,10 +173,56 @@ docker compose exec -T ingesta-service python -m pytest -q
 docker compose exec -T ingesta-service python -m ruff check .
 ```
 
-🔜 *Fases 5 y 6.* Pruebas del tablero y suite de integración de la cadena
-completa.
+Tablero:
 
-## 6.1 Contrato de la API
+```bash
+docker compose exec -T dashboard npx vitest run
+```
+
+```bash
+docker compose exec -T dashboard npx tsc --noEmit && docker compose exec -T dashboard npx next lint
+```
+
+> La construcción de producción (`npx next build`) sobrescribe el directorio
+> `.next` del servidor de desarrollo y lo deja inservible. Ejecútala solo con el
+> contenedor detenido, o reinicia el servicio después:
+> `docker compose restart dashboard`.
+
+**CP-09 · RNF-03** — el tablero debe resolver 20 estanques en menos de 3 s. Los
+datos semilla traen cuatro, así que la medición necesita su propio banco:
+
+```bash
+docker compose exec -T postgres-timescale psql -U sippt -d sippt < db/seeds/S3__carga_cp09.sql
+```
+
+Se retira con `S3__limpiar_cp09.sql`.
+
+🔜 *Fase 6.* Suite de integración de la cadena completa.
+
+## 6.1 El tablero
+
+Una sola pantalla operativa, diseñada mobile-first y probada a 375 px de ancho.
+
+| Zona | Qué muestra |
+|---|---|
+| Alertas abiertas | Ordenadas por fecha descendente, con el formulario de atención (HU-05) |
+| Estado de los estanques | Tarjeta por estanque con semáforo, últimos valores y antigüedad (HU-03) |
+| Tendencia | Gráfico del parámetro en riesgo, con la banda del rango aceptable |
+| Últimas lecturas | Tabla con los valores exactos |
+
+El semáforo **nunca comunica solo con color**: cada estado lleva icono y
+palabra. Un estanque que no reporta desde hace más de 15 minutos se marca como
+*sin comunicación*, y eso desplaza al semáforo — mostrarlo como «normal» sería
+afirmar algo que el sistema no puede saber.
+
+Las alertas aparecen **sin recargar**: el navegador se suscribe a
+`piscigranja/alertas` por el listener WebSocket del broker, y al recibir un
+aviso refresca el tablero desde el servidor.
+
+El token vive en una cookie `httpOnly` y nunca llega a JavaScript del
+navegador: el renderizado ocurre en el servidor y es él quien llama a la API.
+
+## 6.2 Contrato de la API
 
 Los seis endpoints de la Tabla 2 del informe están especificados en
 [`docs/openapi.yaml`](docs/openapi.yaml) (OpenAPI 3.0, validado con Spectral).

@@ -178,8 +178,12 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3000
+      # URL interna: el renderizado en servidor llama al nucleo por la red de
+      # contenedores. El navegador nunca la ve.
+      API_URL_INTERNA: http://api-core:8000/api/v1
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
+      NEXT_PUBLIC_TOPICO_ALERTAS: ${MQTT_TOPIC_ALERTAS:-piscigranja/alertas}
       NEXT_PUBLIC_SIN_COMUNICACION_MIN: ${NEXT_PUBLIC_SIN_COMUNICACION_MIN}
       TZ: ${TZ}
     ports:
@@ -191,7 +195,7 @@ services:
       api-core:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/acceso || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
