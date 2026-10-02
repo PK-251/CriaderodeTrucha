@@ -1128,12 +1128,10 @@ select.campo__entrada {
   place-items: center;
   padding: 24px max(16px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
-  background: radial-gradient(
-      120% 70% at 50% 0%,
-      color-mix(in srgb, var(--acento) 9%, transparent),
-      transparent 70%
-    ),
-    var(--plano);
+  /* Sin fondo propio: lo pinta la capa animada (FondoAgua), que queda
+     detrás y encima del color del body. */
+  position: relative;
+  isolation: isolate;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -1201,6 +1199,141 @@ select.campo__entrada {
 
 .acceso__formulario .boton {
   margin-top: 4px;
+}
+
+/* ── Fondo animado (agua) ─────────────────────────────────────────────────── */
+
+.fondo-agua {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  /* Intensidad de las luces; el tablero la baja para no competir con datos. */
+  --intensidad: 16%;
+  --ciclo: 1;
+}
+
+.fondo-agua[data-variante='tablero'] {
+  --intensidad: 10%;
+  /* Más lento aún: el movimiento debe notarse solo si se busca. */
+  --ciclo: 1.6;
+}
+
+.fondo-agua__luz {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  /* Borde suave con el propio degradado: un filter: blur sobre un elemento
+     tan grande sería caro de pintar en el celular. */
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--acento) var(--intensidad), transparent),
+    transparent
+  );
+  will-change: transform;
+  /* Movimiento constante: lineal en el tiempo, la curva la da la trayectoria. */
+  animation: fondo-deriva calc(46s * var(--ciclo)) linear infinite;
+}
+
+.fondo-agua__luz--1 {
+  top: -30vmax;
+  left: -20vmax;
+}
+
+.fondo-agua__luz--2 {
+  top: 10vmax;
+  right: -30vmax;
+  width: 60vmax;
+  height: 60vmax;
+  animation-duration: calc(58s * var(--ciclo));
+  animation-direction: reverse;
+}
+
+.fondo-agua__luz--3 {
+  bottom: -35vmax;
+  left: 15vmax;
+  width: 55vmax;
+  height: 55vmax;
+  /* El tono de agua clara, para que no sea una sola mancha del acento. */
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, #3aa3b3 var(--intensidad), transparent),
+    transparent
+  );
+  animation-duration: calc(52s * var(--ciclo));
+  animation-delay: calc(-20s * var(--ciclo));
+}
+
+@keyframes fondo-deriva {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(6vmax, 4vmax, 0) scale(1.08);
+  }
+  66% {
+    transform: translate3d(-4vmax, 7vmax, 0) scale(0.95);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.fondo-agua__olas {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22vh;
+  min-height: 120px;
+}
+
+.fondo-agua__ola {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  /* Doble de ancho: la ola se repite a la mitad, y desplazarla un 50 %
+     cierra el ciclo sin salto. */
+  width: 200%;
+  height: 100%;
+  will-change: transform;
+  animation: fondo-ola 22s linear infinite;
+}
+
+.fondo-agua__ola path {
+  fill: var(--acento);
+}
+
+.fondo-agua__ola--atras {
+  height: 85%;
+  opacity: 0.07;
+  animation-duration: 34s;
+  animation-direction: reverse;
+}
+
+.fondo-agua__ola--frente {
+  height: 60%;
+  opacity: 0.1;
+}
+
+@keyframes fondo-ola {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* Con «reducir movimiento» el fondo se queda quieto: el color se mantiene,
+   el desplazamiento desaparece. */
+@media (prefers-reduced-motion: reduce) {
+  .fondo-agua__luz,
+  .fondo-agua__ola {
+    animation: none;
+  }
 }
 
 .solo-lectores {

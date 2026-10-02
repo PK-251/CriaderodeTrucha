@@ -3,6 +3,7 @@
 import { useFormState, useFormStatus } from 'react-dom';
 
 import { acceder } from '@/app/acciones';
+import { FondoAgua } from '@/components/FondoAgua';
 
 /**
  * Acceso al tablero (RF-09).
@@ -18,6 +19,8 @@ export default function Acceso() {
 
   return (
     <main className="acceso">
+      <FondoAgua variante="acceso" />
+
       <div className="acceso__caja">
         <p className="acceso__marca">SIPPT</p>
         <h1 className="acceso__titulo">Tablero de estanques</h1>

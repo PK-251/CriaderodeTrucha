@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 
 import { salir } from '@/app/acciones';
 import { EscuchaAlertas } from '@/components/EscuchaAlertas';
+import { FondoAgua } from '@/components/FondoAgua';
 import { FormularioEstanque } from '@/components/FormularioEstanque';
 import { GraficoTendencia } from '@/components/GraficoTendencia';
 import { PanelAlertas } from '@/components/PanelAlertas';
@@ -132,6 +133,8 @@ export default async function Tablero() {
 
   return (
     <div className="envoltura" data-rol={usuario.rol}>
+      <FondoAgua variante="tablero" />
+
       <a className="saltar" href="#contenido">
         Saltar al contenido
       </a>
