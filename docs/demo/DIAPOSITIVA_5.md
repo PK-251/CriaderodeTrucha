@@ -46,6 +46,7 @@ límite 5.0), EST-02 en advertencia, EST-04 sin comunicación.
 | `capturas/02-tablero-escritorio.png` | Tablero completo: alertas, semáforo, tendencia, tabla | HU-03 |
 | `capturas/03-tablero-movil.png` | Primera pantalla a 375 px: la alerta crítica arriba | HU-03 |
 | `capturas/04-tablero-movil-completo.png` | Tablero móvil completo | HU-03 |
+| `capturas/rol-{operador,tecnico,veterinario}-{movil,escritorio}.png` | La vista de cada rol: mismo semáforo, distinto acento y contenido | HU-01 · HU-03 |
 
 > El indicador «Sin conexión en vivo» de la cabecera aparece porque al capturar
 > no había broker MQTT. En la demo real, con `docker compose up`, dice
@@ -110,7 +111,7 @@ idealmente en el modo responsive del navegador a 375 px).
 | Tiempo | Pantalla | Acción | Qué decir |
 |---|---|---|---|
 | 0:00 – 0:15 | Tablero | Mostrar los 4 estanques en verde | «Esto es el PMV corriendo: cuatro estanques, cada uno con su semáforo.» |
-| 0:15 – 0:40 | Terminal | `./scripts/demo_pmv.sh` → paso **HU-01** | «El técnico registra un estanque con sus umbrales. Si se equivoca e invierte el rango, el sistema le dice qué campo. Y un operador no puede hacerlo.» |
+| 0:15 – 0:40 | Terminal (o tablero como `tecnico@`) | `./scripts/demo_pmv.sh` → paso **HU-01**, o el formulario «Registrar estanque» de la vista técnica | «El técnico registra un estanque con sus umbrales. Si se equivoca e invierte el rango, el sistema le dice qué campo. Y un operador no puede hacerlo.» |
 | 0:40 – 1:10 | Terminal | Paso **HU-02**: el simulador publica OD 4.20 en EST-03 | «Ahora un nodo sensor manda por MQTT una lectura de oxígeno de 4.2. El límite crítico de este estanque es 5.0.» |
 | 1:10 – 1:40 | **Tablero** | La alerta aparece sola, sin recargar; EST-03 pasa a rojo | «Sin tocar nada: alerta crítica, estanque en rojo, con icono y palabra, no solo color. Llegó en segundos; la meta era menos de cinco minutos.» |
 | 1:40 – 2:00 | Terminal | Resumen `10 ✔ · 0 ✘` | «Diez criterios de aceptación de HU-01 a HU-03 validados en vivo. El software funciona, no es una maqueta.» |

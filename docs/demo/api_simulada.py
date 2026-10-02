@@ -52,7 +52,11 @@ def serie(par, n):
         pts.append(dict(parametro=par, valor=round(v, 2), medido_en=iso(t)))
     return list(reversed(pts))
 
-USUARIO = dict(id=1, nombre="Rosa Quispe", email="operador@sippt.local", rol="operador")
+USUARIOS = {
+    "operador": dict(id=1, nombre="Rosa Quispe", email="operador@sippt.local", rol="operador"),
+    "tecnico": dict(id=2, nombre="Julio Mamani", email="tecnico@sippt.local", rol="tecnico"),
+    "veterinario": dict(id=3, nombre="Carmen Huamán", email="veterinario@sippt.local", rol="veterinario"),
+}
 
 class H(BaseHTTPRequestHandler):
     def _r(self, cuerpo, codigo=200):
@@ -61,15 +65,23 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_GET(self):
         u = urlparse(self.path); q = parse_qs(u.query); r = u.path.removeprefix("/api/v1")
-        if r == "/auth/yo": return self._r({"datos": USUARIO})
+        token = self.headers.get("Authorization", "").removeprefix("Bearer ")
+        if r == "/auth/yo": return self._r({"datos": USUARIOS.get(token, USUARIOS["operador"])})
         if r == "/estanques": return self._r({"datos": ESTANQUES})
         if r == "/alertas": return self._r({"datos": ALERTAS})
         if r.startswith("/estanques/") and r.endswith("/lecturas"):
             return self._r({"datos": serie(q.get("parametro", ["od_mgl"])[0], int(q.get("por_pagina", ["288"])[0]))})
         self._r({"error": "no_encontrado"}, 404)
     def do_POST(self):
+        largo = int(self.headers.get("Content-Length", 0) or 0)
+        cuerpo = json.loads(self.rfile.read(largo) or b"{}")
         if self.path.endswith("/auth/login"):
-            return self._r({"datos": {"token": "demo", "usuario": USUARIO}})
+            rol = cuerpo.get("email", "operador@").split("@")[0]
+            return self._r({"datos": {"token": rol, "usuario": USUARIOS.get(rol, USUARIOS["operador"])}})
+        if self.path.endswith("/estanques"):
+            if any(e["codigo"] == cuerpo.get("codigo") for e in ESTANQUES):
+                return self._r({"error": "validacion", "detalle": [{"campo": "codigo", "mensaje": "Ya existe un estanque con ese codigo."}]}, 422)
+            return self._r({"datos": {"id": 99, **cuerpo}}, 201)
         self._r({"error": "no_encontrado"}, 404)
     def log_message(self, *a): pass
 

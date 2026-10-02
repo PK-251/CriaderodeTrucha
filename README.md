@@ -274,6 +274,15 @@ Una sola pantalla operativa, diseñada mobile-first y probada a 375 px de ancho.
 | Tendencia | Gráfico del parámetro en riesgo, con la banda del rango aceptable |
 | Últimas lecturas | Tabla con los valores exactos |
 
+**Cada rol tiene su vista.** Cambian el acento (azul el operador, violeta el
+técnico, ciruela el veterinario) y el contenido, nunca la paleta del semáforo:
+
+| Rol | Orden de la pantalla | Además |
+|---|---|---|
+| Operador | Alertas · estanques · tendencia | Registra la atención de alertas (HU-05) |
+| Técnico | Alertas · estanques · tendencia · registrar estanque | Alta de estanques con sus umbrales (HU-01), con el error junto al campo |
+| Veterinario | Estanques · tendencia · alertas | Solo consulta |
+
 El semáforo **nunca comunica solo con color**: cada estado lleva una forma
 propia (círculo, triángulo, octógono, círculo tachado) y su palabra, y el texto
 va siempre en tinta normal, nunca en el color de estado. Un estanque que no reporta desde hace más de 15 minutos se marca como

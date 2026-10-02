@@ -3,7 +3,9 @@
   "version": "0.1.0-pmv",
   "private": true,
   "description": "Tablero operativo del PMV — Sistema Inteligente para la Optimización de la Producción Piscícola de Trucha",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,10 +15,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "geist": "1.7.2",
+    "mqtt": "5.10.1",
     "next": "14.2.35",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "mqtt": "5.10.1"
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "6.6.3",

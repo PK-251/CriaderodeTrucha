@@ -87,3 +87,32 @@ export type ResultadoAtencion =
   | { estado: 'no_autorizado'; mensaje: string }
   | { estado: 'invalida'; campo: string; mensaje: string }
   | { estado: 'error'; mensaje: string };
+
+export type Etapa = 'alevino' | 'juvenil' | 'engorde' | 'cosecha';
+
+export interface UmbralEntrante {
+  parametro: Parametro;
+  min_aceptable: number;
+  max_aceptable: number;
+  severidad_critica: number;
+}
+
+export interface EstanqueEntrante {
+  codigo: string;
+  volumen_m3: number;
+  biomasa_kg: number;
+  etapa: Etapa;
+  umbrales: UmbralEntrante[];
+}
+
+/**
+ * Resultado del alta de un estanque (HU-01).
+ *
+ * El 422 trae el campo que falló (CP-01, CP-02): el formulario lo muestra
+ * junto a ese campo en lugar de un aviso genérico arriba.
+ */
+export type ResultadoAlta =
+  | { estado: 'creado'; codigo: string }
+  | { estado: 'invalido'; campo: string; mensaje: string }
+  | { estado: 'no_autorizado'; mensaje: string }
+  | { estado: 'error'; mensaje: string };
