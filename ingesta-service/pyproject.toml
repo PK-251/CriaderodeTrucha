@@ -18,6 +18,11 @@ known-first-party = ["app", "conftest"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# El paquete app vive en la raiz del servicio, no instalado. `python -m pytest`
+# anade el directorio actual a sys.path y el script `pytest` no, de modo que sin
+# esta linea la suite depende de como se invoque: pasa en local y falla en
+# integracion continua con cinco errores de recoleccion.
+pythonpath = ["."]
 addopts = "-q --cov=app --cov-report=term-missing --cov-fail-under=80"
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
