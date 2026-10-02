@@ -53,6 +53,10 @@ Para presentar el trabajo —metodología, estructura, decisiones y resultados
 medidos, con las preguntas que conviene anticipar—:
 [`docs/GUIA_DE_EXPOSICION.md`](docs/GUIA_DE_EXPOSICION.md).
 
+Para la demostración en vivo (Diapositiva 5) —capturas, guion de dos minutos y
+los criterios de aceptación de HU-01 a HU-03 validados con
+`scripts/demo_pmv.sh`—: [`docs/demo/DIAPOSITIVA_5.md`](docs/demo/DIAPOSITIVA_5.md).
+
 ### Fuera del alcance
 
 Modelo predictivo de aprendizaje automático, cálculo de ración óptima y FCR,
