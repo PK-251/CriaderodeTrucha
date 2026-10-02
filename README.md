@@ -53,6 +53,10 @@ Para presentar el trabajo —metodología, estructura, decisiones y resultados
 medidos, con las preguntas que conviene anticipar—:
 [`docs/GUIA_DE_EXPOSICION.md`](docs/GUIA_DE_EXPOSICION.md).
 
+Para la demostración en vivo (Diapositiva 5) —capturas, guion de dos minutos y
+los criterios de aceptación de HU-01 a HU-03 validados con
+`scripts/demo_pmv.sh`—: [`docs/demo/DIAPOSITIVA_5.md`](docs/demo/DIAPOSITIVA_5.md).
+
 ### Fuera del alcance
 
 Modelo predictivo de aprendizaje automático, cálculo de ración óptima y FCR,
@@ -264,13 +268,24 @@ Una sola pantalla operativa, diseñada mobile-first y probada a 375 px de ancho.
 
 | Zona | Qué muestra |
 |---|---|
+| Resumen | Cuatro cifras: alertas abiertas, estanques en crítico, sin comunicación y monitoreados |
 | Alertas abiertas | Ordenadas por fecha descendente, con el formulario de atención (HU-05) |
-| Estado de los estanques | Tarjeta por estanque con semáforo, últimos valores y antigüedad (HU-03) |
+| Estado de los estanques | Tarjeta por estanque con semáforo, últimos valores, medidor de rango y antigüedad (HU-03) |
 | Tendencia | Gráfico del parámetro en riesgo, con la banda del rango aceptable |
 | Últimas lecturas | Tabla con los valores exactos |
 
-El semáforo **nunca comunica solo con color**: cada estado lleva icono y
-palabra. Un estanque que no reporta desde hace más de 15 minutos se marca como
+**Cada rol tiene su vista.** Cambian el acento (azul el operador, violeta el
+técnico, ciruela el veterinario) y el contenido, nunca la paleta del semáforo:
+
+| Rol | Orden de la pantalla | Además |
+|---|---|---|
+| Operador | Alertas · estanques · tendencia | Registra la atención de alertas (HU-05) |
+| Técnico | Alertas · estanques · tendencia · registrar estanque | Alta de estanques con sus umbrales (HU-01), con el error junto al campo |
+| Veterinario | Estanques · tendencia · alertas | Solo consulta |
+
+El semáforo **nunca comunica solo con color**: cada estado lleva una forma
+propia (círculo, triángulo, octógono, círculo tachado) y su palabra, y el texto
+va siempre en tinta normal, nunca en el color de estado. Un estanque que no reporta desde hace más de 15 minutos se marca como
 *sin comunicación*, y eso desplaza al semáforo — mostrarlo como «normal» sería
 afirmar algo que el sistema no puede saber.
 

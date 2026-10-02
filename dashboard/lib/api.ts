@@ -4,7 +4,9 @@ import type {
   Alerta,
   Atencion,
   EstadoEstanque,
+  EstanqueEntrante,
   PuntoDeSerie,
+  ResultadoAlta,
   ResultadoAtencion,
   Usuario,
 } from './tipos';
@@ -150,6 +152,57 @@ export async function registrarAtencion(
     return {
       estado: 'invalida',
       campo: primero?.campo ?? 'accion',
+      mensaje: primero?.mensaje ?? 'Revisa los datos ingresados.',
+    };
+  }
+
+  return { estado: 'error', mensaje: `Respuesta inesperada del servidor (${respuesta.status}).` };
+}
+
+/** Da de alta un estanque con sus umbrales (HU-01). Requiere rol técnico. */
+export async function crearEstanque(estanque: EstanqueEntrante): Promise<ResultadoAlta> {
+  const bearer = token();
+
+  if (bearer === null) {
+    return { estado: 'error', mensaje: 'La sesion expiro. Vuelve a iniciar sesion.' };
+  }
+
+  let respuesta: Response;
+
+  try {
+    respuesta = await fetch(`${URL_INTERNA}/estanques`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${bearer}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(estanque),
+      cache: 'no-store',
+    });
+  } catch {
+    return { estado: 'error', mensaje: 'No se pudo contactar con el servidor.' };
+  }
+
+  const cuerpo = (await respuesta.json().catch(() => ({}))) as {
+    datos?: { codigo: string };
+    detalle?: { campo: string; mensaje: string }[];
+  };
+
+  if (respuesta.status === 201) {
+    return { estado: 'creado', codigo: cuerpo.datos?.codigo ?? estanque.codigo };
+  }
+
+  if (respuesta.status === 403) {
+    return { estado: 'no_autorizado', mensaje: 'Solo el técnico puede registrar estanques.' };
+  }
+
+  if (respuesta.status === 422) {
+    const primero = cuerpo.detalle?.[0];
+
+    return {
+      estado: 'invalido',
+      campo: primero?.campo ?? 'codigo',
       mensaje: primero?.mensaje ?? 'Revisa los datos ingresados.',
     };
   }
