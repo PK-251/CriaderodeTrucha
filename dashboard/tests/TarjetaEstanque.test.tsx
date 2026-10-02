@@ -134,4 +134,50 @@ describe('HU-03 · Tarjeta de estanque', () => {
     expect(articulo.getByText('Temperatura')).toBeInTheDocument();
     expect(articulo.getByText('pH')).toBeInTheDocument();
   });
+
+  it('cada estado tiene su propia forma, no solo su color', () => {
+    // Con daltonismo el ámbar y el rojo se confunden; un triángulo y un
+    // octógono no. Por eso el icono cambia de forma, no solo de color.
+    const formas = (['normal', 'advertencia', 'critico'] as const).map((semaforo) => {
+      const { container, unmount } = render(<TarjetaEstanque estanque={estanque({ semaforo })} />);
+      const icono = container.querySelector('.distintivo .icono-estado__forma');
+      const forma = `${icono?.tagName}:${icono?.getAttribute('d') ?? ''}`;
+      unmount();
+
+      return forma;
+    });
+
+    expect(new Set(formas).size).toBe(3);
+  });
+
+  it('el valor fuera de rango se dice con palabras, no con el color del texto', () => {
+    render(
+      <TarjetaEstanque
+        estanque={estanque({
+          semaforo: 'critico',
+          parametros: [parametro({ ultimo_valor: 4.2, severidad_alerta: 'critica' })],
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/bajo el mínimo/)).toBeInTheDocument();
+    expect(screen.getByText('4.20 mg/L')).not.toHaveAttribute('style');
+  });
+
+  it('el medidor ubica el valor respecto al rango aceptable', () => {
+    const { container } = render(
+      <TarjetaEstanque
+        estanque={estanque({ parametros: [parametro({ ultimo_valor: 13, severidad_alerta: 'advertencia' })] })}
+      />,
+    );
+
+    const punto = container.querySelector<HTMLElement>('.medidor__punto');
+    const banda = container.querySelector<HTMLElement>('.medidor__banda');
+
+    expect(punto).toHaveAttribute('data-estado', 'advertencia');
+    // Sobre el máximo: el punto queda a la derecha del final de la banda.
+    const finBanda = parseFloat(banda!.style.left) + parseFloat(banda!.style.width);
+    expect(parseFloat(punto!.style.left)).toBeGreaterThan(finBanda);
+    expect(screen.getByText(/sobre el máximo/)).toBeInTheDocument();
+  });
 });

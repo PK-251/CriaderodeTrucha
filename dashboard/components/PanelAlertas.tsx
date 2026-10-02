@@ -1,3 +1,4 @@
+import { Distintivo } from '@/components/Distintivo';
 import { FormularioAtencion } from '@/components/FormularioAtencion';
 import { SEVERIDAD, horaLegible, valorLegible } from '@/lib/formato';
 import type { Alerta, Rol } from '@/lib/tipos';
@@ -44,15 +45,10 @@ export function PanelAlertas({ alertas, rol }: Props) {
                 {alerta.estanque_codigo} · {alerta.etiqueta ?? alerta.parametro}
               </h3>
 
-              <span
-                className="distintivo"
-                data-estado={alerta.severidad === 'critica' ? 'critico' : 'advertencia'}
-              >
-                <span className="distintivo__icono" aria-hidden="true">
-                  {severidad.icono}
-                </span>
-                {severidad.etiqueta}
-              </span>
+              <Distintivo
+                estado={alerta.severidad === 'critica' ? 'critico' : 'advertencia'}
+                etiqueta={severidad.etiqueta}
+              />
             </div>
 
             <p className="alerta__detalle">

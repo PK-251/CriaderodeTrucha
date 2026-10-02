@@ -50,7 +50,8 @@ export function EscuchaAlertas() {
   }, [router]);
 
   return (
-    <span className="cabecera__sub" data-testid="estado-vivo">
+    <span className="vivo" data-conectado={conectado ? 'true' : 'false'} data-testid="estado-vivo">
+      <span className="vivo__punto" aria-hidden="true" />
       {conectado ? 'En vivo' : 'Sin conexión en vivo'}
     </span>
   );

@@ -14,9 +14,19 @@ interface Props {
   puntos: PuntoDeSerie[];
   unidad: string | null;
   limite?: number;
+  minAceptable?: number | null;
+  maxAceptable?: number | null;
 }
 
-export function TablaLecturas({ puntos, unidad, limite = 12 }: Props) {
+export function TablaLecturas({
+  puntos,
+  unidad,
+  limite = 12,
+  minAceptable = null,
+  maxAceptable = null,
+}: Props) {
+  const conRango = minAceptable !== null && maxAceptable !== null;
+
   const recientes = [...puntos]
     .sort((a, b) => new Date(b.medido_en).getTime() - new Date(a.medido_en).getTime())
     .slice(0, limite);
@@ -34,16 +44,31 @@ export function TablaLecturas({ puntos, unidad, limite = 12 }: Props) {
         <thead>
           <tr>
             <th scope="col">Medición</th>
-            <th scope="col">Valor{unidad ? ` (${unidad})` : ''}</th>
+            <th scope="col" className="tabla__numero">
+              Valor{unidad ? ` (${unidad})` : ''}
+            </th>
+            {conRango ? <th scope="col">Rango</th> : null}
           </tr>
         </thead>
         <tbody>
-          {recientes.map((punto) => (
-            <tr key={punto.medido_en}>
-              <td>{horaLegible(punto.medido_en)}</td>
-              <td>{punto.valor.toFixed(2)}</td>
-            </tr>
-          ))}
+          {recientes.map((punto) => {
+            const bajo = conRango && punto.valor < minAceptable;
+            const sobre = conRango && punto.valor > maxAceptable;
+
+            return (
+              <tr key={punto.medido_en} data-fuera={bajo || sobre ? 'true' : undefined}>
+                <td>{horaLegible(punto.medido_en)}</td>
+                <td className="tabla__numero">{punto.valor.toFixed(2)}</td>
+                {conRango ? (
+                  <td className="tabla__estado">
+                    {/* Sin icono de severidad: la tabla solo conoce el rango
+                        aceptable, no si el desvío es advertencia o crítico. */}
+                    {bajo ? '↓ bajo el mínimo' : sobre ? '↑ sobre el máximo' : 'dentro'}
+                  </td>
+                ) : null}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

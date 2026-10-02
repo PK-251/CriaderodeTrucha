@@ -268,13 +268,15 @@ Una sola pantalla operativa, diseñada mobile-first y probada a 375 px de ancho.
 
 | Zona | Qué muestra |
 |---|---|
+| Resumen | Cuatro cifras: alertas abiertas, estanques en crítico, sin comunicación y monitoreados |
 | Alertas abiertas | Ordenadas por fecha descendente, con el formulario de atención (HU-05) |
-| Estado de los estanques | Tarjeta por estanque con semáforo, últimos valores y antigüedad (HU-03) |
+| Estado de los estanques | Tarjeta por estanque con semáforo, últimos valores, medidor de rango y antigüedad (HU-03) |
 | Tendencia | Gráfico del parámetro en riesgo, con la banda del rango aceptable |
 | Últimas lecturas | Tabla con los valores exactos |
 
-El semáforo **nunca comunica solo con color**: cada estado lleva icono y
-palabra. Un estanque que no reporta desde hace más de 15 minutos se marca como
+El semáforo **nunca comunica solo con color**: cada estado lleva una forma
+propia (círculo, triángulo, octógono, círculo tachado) y su palabra, y el texto
+va siempre en tinta normal, nunca en el color de estado. Un estanque que no reporta desde hace más de 15 minutos se marca como
 *sin comunicación*, y eso desplaza al semáforo — mostrarlo como «normal» sería
 afirmar algo que el sistema no puede saber.
 

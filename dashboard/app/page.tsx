@@ -4,6 +4,7 @@ import { salir } from '@/app/acciones';
 import { EscuchaAlertas } from '@/components/EscuchaAlertas';
 import { GraficoTendencia } from '@/components/GraficoTendencia';
 import { PanelAlertas } from '@/components/PanelAlertas';
+import { ResumenTablero } from '@/components/ResumenTablero';
 import { TablaLecturas } from '@/components/TablaLecturas';
 import { TarjetaEstanque } from '@/components/TarjetaEstanque';
 import { alertasAbiertas, estadoDeEstanques, serieDeEstanque, usuarioActual } from '@/lib/api';
@@ -78,13 +79,14 @@ export default async function Tablero() {
             </form>
           </div>
         </div>
-
-        <p className="cabecera__sub" style={{ marginTop: 6 }}>
-          {estanques.length} estanques · {alertas?.length ?? 0} alertas abiertas
-          {criticos > 0 ? ` · ${criticos} en estado crítico` : ''}
-          {incomunicados > 0 ? ` · ${incomunicados} sin comunicación` : ''}
-        </p>
       </header>
+
+      <ResumenTablero
+        estanques={estanques.length}
+        alertas={alertas?.length ?? 0}
+        criticos={criticos}
+        incomunicados={incomunicados}
+      />
 
       <section className="seccion">
         <h2 className="seccion__titulo">Alertas abiertas</h2>
@@ -115,7 +117,12 @@ export default async function Tablero() {
           />
 
           <div style={{ marginTop: 12 }}>
-            <TablaLecturas puntos={serie} unidad={parametroDestacado.unidad} />
+            <TablaLecturas
+              puntos={serie}
+              unidad={parametroDestacado.unidad}
+              minAceptable={parametroDestacado.min_aceptable}
+              maxAceptable={parametroDestacado.max_aceptable}
+            />
           </div>
         </section>
       ) : null}

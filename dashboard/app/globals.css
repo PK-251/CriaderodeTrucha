@@ -34,6 +34,10 @@
   --sombra: 0 1px 2px rgba(11, 11, 11, 0.06);
 }
 
+/* El modo oscuro tiene sus propios pasos, elegidos contra la superficie
+   oscura; no es una inversión automática. Se declara dos veces: por la
+   preferencia del sistema y por el atributo data-tema, que manda en ambos
+   sentidos. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema='claro']) {
     color-scheme: dark;
@@ -49,6 +53,21 @@
     --serie: #3987e5;
     --serie-tenue: #184f95;
   }
+}
+
+:root[data-tema='oscuro'] {
+  color-scheme: dark;
+
+  --plano: #0d0d0d;
+  --superficie: #1a1a19;
+  --tinta: #ffffff;
+  --tinta-2: #c3c2b7;
+  --tinta-apagada: #898781;
+  --linea: #2c2c2a;
+  --borde: rgba(255, 255, 255, 0.1);
+
+  --serie: #3987e5;
+  --serie-tenue: #184f95;
 }
 
 *,
@@ -128,6 +147,76 @@ h3 {
   letter-spacing: 0.06em;
   color: var(--tinta-2);
   margin-bottom: 10px;
+}
+
+/* ── Resumen ──────────────────────────────────────────────────────────────── */
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 0 0 28px;
+}
+
+@media (min-width: 720px) {
+  .resumen {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.resumen__cifra {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 12px 14px;
+}
+
+.resumen__cifra[data-estado='critico'] {
+  background: color-mix(in srgb, var(--critico) 6%, var(--superficie));
+  border-color: color-mix(in srgb, var(--critico) 35%, transparent);
+}
+
+.resumen__etiqueta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--tinta-2);
+}
+
+.resumen__valor {
+  margin: 2px 0 0;
+  font-size: 28px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--tinta);
+}
+
+.resumen__cifra:not([data-estado]) .resumen__valor {
+  color: var(--tinta-2);
+}
+
+/* ── Indicador en vivo ─────────────────────────────────────────────────────── */
+
+.vivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--tinta-2);
+}
+
+.vivo__punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sin-datos);
+}
+
+.vivo[data-conectado='true'] .vivo__punto {
+  background: var(--normal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--normal) 25%, transparent);
 }
 
 /* ── Tarjetas de estanque ─────────────────────────────────────────────────── */
@@ -215,9 +304,61 @@ h3 {
 }
 
 .parametro__valor {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.parametro__fuera {
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+/* Medidor de rango: banda aceptable + punto del valor. */
+.medidor {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 12px;
+  margin: 2px 0 0;
+}
+
+.medidor::before {
+  /* La pista: una línea fina, recesiva */
+  content: '';
+  position: absolute;
+  inset: 5px 0;
+  border-radius: 2px;
+  background: var(--linea);
+}
+
+.medidor__banda {
+  position: absolute;
+  top: 3px;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--normal) 30%, var(--superficie));
+}
+
+.medidor__punto {
+  position: absolute;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  /* Anillo del color de la superficie: separa el punto de la banda sin
+     dibujar un borde que sería tinta sin datos. */
+  box-shadow: 0 0 0 2px var(--superficie);
+  background: var(--normal);
+}
+.medidor__punto[data-estado='advertencia'] {
+  background: var(--advertencia);
+}
+.medidor__punto[data-estado='critico'] {
+  background: var(--critico);
+}
+.medidor__punto[data-estado='sin-datos'] {
+  background: var(--sin-datos);
 }
 
 .parametro__rango {
@@ -232,37 +373,62 @@ h3 {
 .distintivo {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  padding: 2px 8px;
+  /* El texto lleva tinta, nunca el color de estado: el ámbar sobre blanco no
+     llega a 2:1 de contraste. El color lo carga la forma del icono. */
+  color: var(--tinta);
+  padding: 3px 9px 3px 6px;
   border-radius: 999px;
   white-space: nowrap;
-  border: 1px solid transparent;
+  border: 1px solid var(--borde);
+  background: var(--superficie);
 }
 
-.distintivo__icono {
-  font-size: 12px;
-  line-height: 1;
-}
-
-.distintivo[data-estado='normal'] {
-  color: var(--normal);
-  border-color: var(--normal);
-}
 .distintivo[data-estado='advertencia'] {
-  color: var(--tinta);
-  border-color: var(--advertencia);
-  background: color-mix(in srgb, var(--advertencia) 16%, transparent);
+  background: color-mix(in srgb, var(--advertencia) 14%, var(--superficie));
+  border-color: color-mix(in srgb, var(--advertencia) 55%, transparent);
 }
 .distintivo[data-estado='critico'] {
-  color: var(--critico);
-  border-color: var(--critico);
-  background: color-mix(in srgb, var(--critico) 10%, transparent);
+  background: color-mix(in srgb, var(--critico) 10%, var(--superficie));
+  border-color: color-mix(in srgb, var(--critico) 50%, transparent);
 }
 .distintivo[data-estado='sin-datos'] {
-  color: var(--tinta-apagada);
-  border-color: var(--tinta-apagada);
+  color: var(--tinta-2);
+}
+
+/* ── Icono de estado: una forma por estado ───────────────────────────────── */
+
+.icono-estado {
+  flex: none;
+  display: block;
+  --color-estado: var(--sin-datos);
+  --color-glifo: #ffffff;
+}
+.icono-estado[data-estado='normal'] {
+  --color-estado: var(--normal);
+}
+.icono-estado[data-estado='advertencia'] {
+  --color-estado: var(--advertencia);
+  /* Glifo en tinta oscura: el blanco sobre ámbar no se lee. */
+  --color-glifo: #0b0b0b;
+}
+.icono-estado[data-estado='critico'] {
+  --color-estado: var(--critico);
+}
+
+.icono-estado__forma {
+  fill: var(--color-estado);
+}
+.icono-estado__glifo {
+  stroke: var(--color-glifo);
+}
+.icono-estado__punto {
+  fill: var(--color-glifo);
+}
+.icono-estado__trazo {
+  stroke: var(--color-estado);
 }
 
 /* ── Panel de alertas ─────────────────────────────────────────────────────── */
@@ -439,6 +605,33 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
+.tabla .tabla__numero {
+  text-align: right;
+}
+
+.tabla__estado {
+  color: var(--tinta-apagada);
+}
+
+/* En el celular la tabla cabe sin desplazamiento lateral: la columna de
+   rango puede partirse en dos líneas antes que esconderse. */
+@media (max-width: 480px) {
+  .tabla th,
+  .tabla td {
+    padding: 9px 8px;
+  }
+
+  .tabla .tabla__estado {
+    white-space: normal;
+  }
+}
+
+.tabla tr[data-fuera='true'] .tabla__estado,
+.tabla tr[data-fuera='true'] .tabla__numero {
+  color: var(--tinta);
+  font-weight: 600;
+}
+
 .tabla tr:last-child td {
   border-bottom: 0;
 }
@@ -464,10 +657,122 @@ h3 {
   margin-bottom: 10px;
 }
 
+.grafico__clave-banda {
+  display: inline-block;
+  width: 12px;
+  height: 8px;
+  margin: 0 5px 0 1px;
+  border-radius: 2px;
+  vertical-align: 0;
+  background: color-mix(in srgb, var(--normal) 22%, var(--superficie));
+}
+
+.grafico__lienzo {
+  position: relative;
+  width: 100%;
+}
+
 .grafico svg {
   display: block;
-  width: 100%;
-  height: auto;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.grafico svg:focus-visible {
+  outline: 2px solid var(--serie);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.grafico__banda {
+  fill: var(--normal);
+  opacity: 0.08;
+}
+
+.grafico__rejilla {
+  stroke: var(--linea);
+  stroke-width: 1;
+}
+
+.grafico__limite {
+  stroke: var(--normal);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+.grafico__base {
+  stroke: var(--tinta-apagada);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.grafico__eje {
+  font-size: 11px;
+  fill: var(--tinta-apagada);
+  font-variant-numeric: tabular-nums;
+}
+
+.grafico__linea {
+  fill: none;
+  stroke: var(--serie);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.grafico__punto {
+  fill: var(--serie);
+  stroke: var(--superficie);
+  stroke-width: 2;
+}
+
+.grafico__rotulo-final {
+  font-size: 12px;
+  font-weight: 650;
+  fill: var(--tinta);
+  font-variant-numeric: tabular-nums;
+}
+
+.grafico__cruz {
+  stroke: var(--tinta-apagada);
+  stroke-width: 1;
+}
+
+.grafico__tooltip {
+  position: absolute;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 10px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(11, 11, 11, 0.12);
+  white-space: nowrap;
+}
+
+.grafico__tooltip-valor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--tinta);
+  font-variant-numeric: tabular-nums;
+}
+
+.grafico__tooltip-clave {
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--serie);
+}
+
+.grafico__tooltip-hora {
+  font-size: 12px;
+  color: var(--tinta-2);
+  padding-left: 18px;
 }
 
 /* ── Acceso ───────────────────────────────────────────────────────────────── */
