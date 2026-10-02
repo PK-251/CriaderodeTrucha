@@ -154,6 +154,10 @@ services:
       - "${INGESTA_HOST_PORT:-8001}:8001"
     volumes:
       - ./ingesta-service:/srv
+      # El contenedor de ingesta es el unico con paho-mqtt y httpx instalados,
+      # de modo que es el que ejecuta el simulador y la suite de integracion.
+      - ./scripts:/srv/scripts:ro
+      - ./tests-integracion:/srv/tests-integracion:ro
       # Búfer persistente: sobrevive al reinicio del contenedor (RNF-02)
       - ingesta-buffer:/data
     depends_on:

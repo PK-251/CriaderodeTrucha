@@ -133,8 +133,32 @@ sostenida, las lecturas se están acumulando porque el núcleo no responde. El
 búfer es un SQLite en un volumen con nombre, de modo que sobrevive al reinicio
 del contenedor (RNF-02).
 
-🔜 *Fase 6.* `scripts/simular_sensores.py` automatizará los escenarios de
-advertencia, crítico y corte de enlace sin hardware físico.
+`scripts/simular_sensores.py` publica lecturas igual que lo harían los nodos
+reales, para provocar cada escenario sin hardware físico. Bajar el oxígeno de
+un estanque de verdad para comprobar que la alerta funciona significa estresar
+a las truchas; aquí basta un argumento.
+
+```bash
+docker compose exec -T ingesta-service python /srv/scripts/simular_sensores.py --critico --host mosquitto
+```
+
+| Modo | Qué provoca | Caso |
+|---|---|---|
+| `--normal` | Lecturas dentro de rango en los 12 nodos | — |
+| `--advertencia` | OD bajo el mínimo pero sobre el crítico (5.10 en EST-03) | CP-06 |
+| `--critico` | OD bajo el límite crítico (4.20 en EST-03) | CP-07 |
+| `--sensor-averiado` | pH 14.80, fuera del rango del electrodo | CP-05 |
+| `--corte-enlace N` | Lote de N minutos con marcas del periodo sin conexión | CP-04 |
+| `--continuo` | Operación sostenida a intervalo real | — |
+
+Acepta `--estanque EST-03` para acotar, y `--host localhost` si lo ejecutas
+fuera de los contenedores.
+
+Preparar el entorno para una demostración, desde cero:
+
+```bash
+./scripts/cargar_datos_prueba.sh --escenario
+```
 
 ---
 
@@ -197,7 +221,23 @@ docker compose exec -T postgres-timescale psql -U sippt -d sippt < db/seeds/S3__
 
 Se retira con `S3__limpiar_cp09.sql`.
 
-🔜 *Fase 6.* Suite de integración de la cadena completa.
+**Suite de integración** — recorre `nodo → MQTT → ingesta → núcleo → BD →
+alerta → tablero` contra los servicios reales, sin dobles, y verifica los diez
+casos CP-01 a CP-10:
+
+```bash
+docker compose exec -T -w /srv/tests-integracion ingesta-service python -m pytest . -v -o addopts=""
+```
+
+Tarda unos cinco minutos: espera de verdad a que la ingesta despache el búfer.
+Al terminar imprime las mediciones.
+
+| Medición | Resultado | Meta | Informe |
+|---|---|---|---|
+| CP-07 · medición → alerta visible | **29.5 s** | < 300 s (RNF-01) | 41 s |
+| CP-09 · tablero completo | **1.12 s** | < 3 s (RNF-03) | 2.1 s |
+| CP-09 · API `/estanques` | 125 ms | — | — |
+| CP-04 · lote del búfer reenviado | 60 almacenadas, 0 duplicados | sin pérdidas | — |
 
 ## 6.1 El tablero
 
