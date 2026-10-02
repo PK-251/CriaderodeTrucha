@@ -4,9 +4,10 @@
 
 Asignatura Procesos de Software (ASUC01702) — Universidad Continental, Huancayo.
 
-> **Estado actual: Fase 0 — andamiaje.** La estructura del monorepo y el entorno
-> de contenedores están en pie. Las secciones marcadas con 🔜 se completan en la
-> fase indicada, conforme avanza el plan de construcción.
+**Estado: Primer Incremento completo.** Las cinco historias del PMV están
+implementadas y verificadas de extremo a extremo.
+
+[![CI](https://github.com/PK-251/CriaderodeTrucha/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/PK-251/CriaderodeTrucha/actions/workflows/ci.yml)
 
 ---
 
@@ -308,7 +309,8 @@ Autenticación por token Bearer (`POST /api/v1/auth/login`). Usuarios semilla:
 │   ├── wireframes/             # tablero del PMV
 │   └── openapi.yaml            # contratos REST (Fase 3)
 ├── infra/mosquitto/            # configuración del broker
-└── scripts/                    # simulador de sensores y carga de datos
+├── scripts/                    # migraciones, simulador y carga de datos
+└── tests-integracion/          # suite de la cadena completa (CP-01 a CP-10)
 ```
 
 **Regla dura de arquitectura:** `backend-core/src/Domain/` no importa nada de
@@ -316,6 +318,40 @@ Laravel, Eloquent, el broker MQTT ni la base de datos. La política `ReglaUmbral
 debe ser testeable con PHPUnit puro.
 
 ---
+
+## 7.1 Integración continua
+
+Cada cambio sobre `develop` y cada pull request dispara
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml), con cinco trabajos en
+paralelo y una puerta final:
+
+| Trabajo | Qué verifica |
+|---|---|
+| `migraciones` | Aplica V1–V5, carga semillas, revierte U5–U1 y vuelve a aplicar sobre base limpia |
+| `backend` | Pint · PHPStan nivel 6 · PHPUnit con cobertura · pureza del núcleo |
+| `ingesta` | Ruff · pytest con umbral de cobertura al 80 % |
+| `dashboard` | ESLint · TypeScript estricto · vitest · construcción de producción |
+| `contrato` | Spectral sobre `docs/openapi.yaml` |
+| `verificacion` | Puerta final: falla si cualquiera de los anteriores falló |
+
+El trabajo `backend` repite por su cuenta la comprobación de que `src/Domain/`
+no importa nada del framework. Es redundante con `PurezaDelNucleoTest`, y a
+propósito: si alguien desactivara esa prueba, el pipeline seguiría impidiendo
+que el dominio dependa de la infraestructura.
+
+### Protección de rama
+
+`main` solo debe recibir fusiones desde `develop` con el pipeline en verde. Esa
+configuración **no vive en el repositorio** sino en GitHub, y hay que aplicarla
+a mano en *Settings → Branches → Add branch ruleset*:
+
+- Ramas objetivo: `main` y `develop`
+- *Require a pull request before merging* — con al menos una aprobación
+- *Require status checks to pass* — marcar **`Verificacion completa`**
+- *Block force pushes*
+
+Conviene exigir solo el check final y no los cinco por separado: así, añadir un
+trabajo nuevo al pipeline no obliga a tocar la configuración de GitHub.
 
 ## 8. Contribución
 
@@ -350,5 +386,7 @@ principal superior al 80 %.
 | Lindo Torres, Raúl Jesús | Pruebas, calidad del dato y monitoreo |
 
 Docente: Guevara Jiménez, Jorge Alfredo.
+
+**Versión** `v0.1.0-pmv` — Primer Incremento.
 
 Licencia de uso académico. Universidad Continental — 2026.

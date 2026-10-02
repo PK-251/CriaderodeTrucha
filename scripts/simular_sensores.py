@@ -36,7 +36,9 @@ except ImportError:  # pragma: no cover
     print(
         "Falta paho-mqtt. Instalalo con:  pip install paho-mqtt\n"
         "O ejecuta el simulador dentro del contenedor de ingesta:\n"
-        "  docker compose exec -T ingesta-service python /srv/scripts/simular_sensores.py --critico",
+        "  docker compose exec -T ingesta-service \
+"
+        "      python /srv/scripts/simular_sensores.py --critico",
         file=sys.stderr,
     )
     raise SystemExit(2) from None
@@ -223,7 +225,9 @@ def escenario_corte_enlace(pub: Publicador, estanques: list[str], minutos: int) 
     while momento < fin:
         for estanque in estanques:
             nodo, parametro = NODOS[estanque][0]
-            pub.publicar(Lectura(estanque, nodo, parametro, valor_normal(estanque, parametro), momento))
+            pub.publicar(
+                Lectura(estanque, nodo, parametro, valor_normal(estanque, parametro), momento)
+            )
             total += 1
 
         momento += intervalo
@@ -268,10 +272,14 @@ def main() -> int:
     )
     modos.add_argument("--continuo", action="store_true", help="operacion normal sostenida")
 
-    analizador.add_argument("--estanque", action="append", choices=sorted(NODOS), help="por defecto todos")
-    analizador.add_argument("--host", default="localhost", help="broker MQTT (por defecto localhost)")
+    analizador.add_argument(
+        "--estanque", action="append", choices=sorted(NODOS), help="por defecto todos"
+    )
+    analizador.add_argument("--host", default="localhost", help="broker MQTT")
     analizador.add_argument("--puerto", type=int, default=1883)
-    analizador.add_argument("--intervalo", type=float, default=5.0, help="minutos, solo con --continuo")
+    analizador.add_argument(
+        "--intervalo", type=float, default=5.0, help="minutos, solo con --continuo"
+    )
     analizador.add_argument("--silencioso", action="store_true")
 
     args = analizador.parse_args()

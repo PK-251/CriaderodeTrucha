@@ -11,6 +11,11 @@ select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
 # ingles solo en Python romperia esa correspondencia sin ganar claridad.
 ignore = ["N818"]
 
+[tool.ruff.lint.isort]
+# conftest es un modulo local de la suite de integracion, no un paquete
+# instalado: sin declararlo, Ruff lo ordena entre las dependencias de terceros.
+known-first-party = ["app", "conftest"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --cov=app --cov-report=term-missing --cov-fail-under=80"

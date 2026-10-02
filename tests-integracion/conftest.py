@@ -183,7 +183,7 @@ def registrar(nombre: str, valor: str) -> None:
     MEDICIONES[nombre] = valor
 
 
-def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:  # noqa: ANN001, ARG001
+def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
     """Imprime las mediciones al cerrar la suite.
 
     El informe pide reportar explícitamente el tiempo hasta la alerta y el de

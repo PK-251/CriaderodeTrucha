@@ -103,7 +103,7 @@ class TestHU01:
 
 class TestHU02:
     def test_cp03_lectura_publicada_llega_a_la_base(
-        self, publicar, operador: Credenciales, api: httpx.Client  # noqa: ANN001
+        self, publicar, operador: Credenciales, api: httpx.Client
     ) -> None:
         """CP-03 · Recepción y parseo de una lectura del tópico MQTT."""
         estanque, parametro, nodo = EST03_OD
@@ -140,7 +140,7 @@ class TestHU02:
         assert datetime.fromisoformat(encontrada["medido_en"]) == momento
 
     def test_cp04_el_reenvio_del_bufer_no_duplica_ni_pierde(
-        self, publicar, operador: Credenciales, api: httpx.Client  # noqa: ANN001
+        self, publicar, operador: Credenciales, api: httpx.Client
     ) -> None:
         """CP-04 · Lote retenido durante un corte de enlace.
 
@@ -182,10 +182,13 @@ class TestHU02:
         time.sleep(40)
 
         assert cuantas_almacenadas() == cuantas, "El reenvio duplico lecturas"
-        registrar("CP-04 · lecturas del bufer (enviadas dos veces)", f"{cuantas} almacenadas, 0 duplicados")
+        registrar(
+            "CP-04 · lecturas del bufer (enviadas dos veces)",
+            f"{cuantas} almacenadas, 0 duplicados",
+        )
 
     def test_cp05_valor_imposible_se_descarta_sin_alertar(
-        self, publicar, operador: Credenciales, api: httpx.Client  # noqa: ANN001
+        self, publicar, operador: Credenciales, api: httpx.Client
     ) -> None:
         """CP-05 · pH 14.8, fuera del rango físico del electrodo."""
         estanque, parametro, nodo = EST03_PH
@@ -217,7 +220,7 @@ class TestHU02:
 
 class TestHU04:
     def test_cp06_oxigeno_en_advertencia(
-        self, publicar, operador: Credenciales  # noqa: ANN001
+        self, publicar, operador: Credenciales
     ) -> None:
         """CP-06 · OD 5.1 mg/L con mínimo 5.5 y crítico 5.0."""
         estanque, parametro, nodo = EST03_OD
@@ -230,7 +233,7 @@ class TestHU04:
         assert float(alerta["umbral_violado"]) == pytest.approx(5.5)
 
     def test_cp07_oxigeno_critico_y_tiempo_hasta_la_alerta(
-        self, publicar, operador: Credenciales  # noqa: ANN001
+        self, publicar, operador: Credenciales
     ) -> None:
         """CP-07 · OD 4.2 mg/L por debajo del crítico, con RNF-01 medido.
 
@@ -254,7 +257,7 @@ class TestHU04:
         )
 
     def test_cp08_tres_lecturas_consecutivas_mantienen_una_sola_alerta(
-        self, publicar, operador: Credenciales, api: httpx.Client  # noqa: ANN001
+        self, publicar, operador: Credenciales, api: httpx.Client
     ) -> None:
         """CP-08 · Sin alertas duplicadas mientras la condición persiste."""
         estanque, parametro, nodo = EST03_OD
@@ -339,7 +342,7 @@ class TestHU03:
 
 class TestHU05:
     def test_cp10_atencion_duplicada_devuelve_el_registro_existente(
-        self, publicar, operador: Credenciales, api: httpx.Client  # noqa: ANN001
+        self, publicar, operador: Credenciales, api: httpx.Client
     ) -> None:
         """CP-10 · Registro de atención sobre una alerta ya atendida."""
         estanque, parametro, nodo = EST03_OD
@@ -367,7 +370,7 @@ class TestHU05:
         assert cuerpo["datos"]["accion"] == "Aireacion manual activada"
 
     def test_el_veterinario_no_puede_cerrar_alertas(
-        self, publicar, operador: Credenciales, veterinario: Credenciales, api: httpx.Client  # noqa: ANN001
+        self, publicar, operador: Credenciales, veterinario: Credenciales, api: httpx.Client
     ) -> None:
         """RF-09 · El rol se verifica de extremo a extremo."""
         estanque, parametro, nodo = EST03_OD
