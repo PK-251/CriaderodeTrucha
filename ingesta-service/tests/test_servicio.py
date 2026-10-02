@@ -42,8 +42,23 @@ class TestConfiguracion:
         assert ajustes() is ajustes()
 
 
+@pytest.fixture
+def servicio_aislado(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Arranca el servicio con el bufer en un directorio temporal.
+
+    Sin esto, el ciclo de vida crea el bufer en /data —la ruta del contenedor—
+    y la suite falla con PermissionError en cualquier entorno que no sea ese:
+    el runner de integracion continua corre sin privilegios y no puede crear
+    directorios en la raiz.
+    """
+    monkeypatch.setenv("INGESTA_BUFFER_PATH", str(tmp_path / "buffer.sqlite3"))
+    ajustes.cache_clear()
+    yield
+    ajustes.cache_clear()
+
+
 class TestExtremosHttp:
-    def test_health_responde_para_el_healthcheck_del_contenedor(self) -> None:
+    def test_health_responde_para_el_healthcheck_del_contenedor(self, servicio_aislado) -> None:
         with TestClient(app) as cliente:
             respuesta = cliente.get("/health")
 
@@ -51,7 +66,7 @@ class TestExtremosHttp:
         assert respuesta.json()["servicio"] == "ingesta-service"
         assert respuesta.json()["estado"] == "ok"
 
-    def test_metricas_expone_recepcion_y_entrega(self) -> None:
+    def test_metricas_expone_recepcion_y_entrega(self, servicio_aislado) -> None:
         with TestClient(app) as cliente:
             cuerpo = cliente.get("/metricas").json()
 
