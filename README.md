@@ -35,6 +35,20 @@ mientras la condición todavía es reversible.
 - **RNF-03** — tablero de hasta 20 estanques en menos de 3 segundos
 - **RNF-04** — toda escritura auditada con usuario y marca temporal
 
+### El trabajo en tres bloques
+
+Cada bloque es abordable por separado una vez cerrado el contrato
+(`docs/openapi.yaml` + el DDL), que es la frontera entre los tres.
+
+| Bloque | Qué cubre | Estado |
+|---|---|---|
+| **1 · Backend** | Esquema, núcleo hexagonal, persistencia, notificadores, pruebas unitarias | ✅ 93 pruebas · 100 % del dominio |
+| **2 · APIs** | Contrato OpenAPI, 6 endpoints REST, ingesta MQTT, integración | ✅ 83 pruebas · RNF-01 en 27.6 s |
+| **3 · Frontend** | Maquetado, componentes, conexión, tiempo real, pruebas de UI | ✅ 20 pruebas · RNF-03 en 2.20 s |
+
+Detalle de las trece fases, con su DoD y el comando que lo verifica:
+[`docs/BLOQUES.md`](docs/BLOQUES.md).
+
 ### Fuera del alcance
 
 Modelo predictivo de aprendizaje automático, cálculo de ración óptima y FCR,
