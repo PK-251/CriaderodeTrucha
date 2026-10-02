@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+# El entorno de pruebas no lleva secretos —apunta a una base local desechable—
+# y el pipeline lo necesita para ejecutar la suite de feature.
+!.env.testing.example
 *.local
 
 # ── PHP / Laravel (backend-core) ─────────────────────────────────────────────

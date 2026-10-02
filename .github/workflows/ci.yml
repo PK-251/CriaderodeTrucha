@@ -1,0 +1,319 @@
+name: CI
+
+# El pipeline corre en cada cambio sobre develop y en cada pull request hacia
+# develop o main. Es la verificación que el DoD del informe exige antes de
+# declarar terminado un incremento: «los diez casos de prueba se ejecutan en
+# verde en el pipeline de integración continua».
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+# Un push nuevo sobre la misma rama cancela la ejecución anterior: no tiene
+# sentido gastar minutos verificando un commit ya superado.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  POSTGRES_DB: sippt
+  POSTGRES_USER: sippt
+  POSTGRES_PASSWORD: sippt_ci
+
+jobs:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Esquema de datos — aplica y revierte sobre base limpia
+  #
+  # Es el criterio de terminación de la Fase 1 y una condición del DoD del
+  # informe. Se verifica el ciclo completo: aplicar, revertir y volver a
+  # aplicar. Una migración que solo se prueba hacia adelante deja al equipo sin
+  # salida el día que haya que dar marcha atrás en producción.
+  # ──────────────────────────────────────────────────────────────────────────
+  migraciones:
+    name: Migraciones (aplicar y revertir)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: timescale/timescaledb:2.17.2-pg16
+        env:
+          POSTGRES_DB: sippt
+          POSTGRES_USER: sippt
+          POSTGRES_PASSWORD: sippt_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sippt -d sippt"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar cliente de PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Aplicar V1 a V5
+        run: |
+          for archivo in db/migrations/V*.sql; do
+            echo "→ $(basename "$archivo")"
+            PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB \
+              -v ON_ERROR_STOP=1 -q -f "$archivo"
+          done
+
+      - name: Cargar datos semilla
+        run: |
+          for archivo in db/seeds/S1__maestras.sql db/seeds/S2__lecturas.sql; do
+            echo "→ $(basename "$archivo")"
+            PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB \
+              -v ON_ERROR_STOP=1 -q -f "$archivo"
+          done
+
+      - name: Comprobar el esquema resultante
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -t -A -c "
+            SELECT 'tablas=' || count(*) FROM pg_tables WHERE schemaname='public';"
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -t -A -c "
+            SELECT 'hypertable=' || hypertable_name FROM timescaledb_information.hypertables;"
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -t -A -c "
+            SELECT 'estanques=' || count(*) FROM estanque;"
+
+      - name: Revertir U5 a U1
+        run: |
+          for archivo in $(ls -1 db/rollback/U*.sql | sort -r); do
+            echo "→ $(basename "$archivo")"
+            PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB \
+              -v ON_ERROR_STOP=1 -q -f "$archivo"
+          done
+
+      - name: Verificar que la base quedo limpia
+        run: |
+          restantes=$(PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER \
+            -d $POSTGRES_DB -t -A -c "SELECT count(*) FROM pg_tables WHERE schemaname='public';")
+          echo "tablas restantes: $restantes"
+          test "$restantes" = "0" || { echo "La reversion dejo tablas sin eliminar"; exit 1; }
+
+      - name: Reaplicar sobre base limpia
+        run: |
+          for archivo in db/migrations/V*.sql; do
+            PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB \
+              -v ON_ERROR_STOP=1 -q -f "$archivo"
+          done
+          echo "Ciclo aplicar → revertir → reaplicar completado"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Núcleo hexagonal — Laravel 12 / PHP 8.3
+  # ──────────────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend (Pint · PHPStan 6 · PHPUnit)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: timescale/timescaledb:2.17.2-pg16
+        env:
+          POSTGRES_DB: sippt_test
+          POSTGRES_USER: sippt
+          POSTGRES_PASSWORD: sippt_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sippt -d sippt_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend-core
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_pgsql, zip, mbstring
+          # pcov y no Xdebug: mide lineas ejecutadas, que es lo que el DoD
+          # exige, sin el sobrecoste de depuracion.
+          coverage: pcov
+
+      - name: Cachear dependencias de Composer
+        uses: actions/cache@v4
+        with:
+          path: backend-core/vendor
+          key: composer-${{ hashFiles('backend-core/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Preparar el entorno de pruebas
+        # .env.testing no se versiona (lleva la contrasena de la base local);
+        # el ejemplo si, y las variables del trabajo lo completan. Dotenv carga
+        # de forma inmutable, de modo que las del entorno real tienen prioridad.
+        run: cp .env.testing.example .env.testing
+
+      - name: Formato (Laravel Pint)
+        run: vendor/bin/pint --test
+
+      - name: Analisis estatico (PHPStan nivel 6)
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+      - name: Preparar la base de pruebas
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          for archivo in ../db/migrations/V*.sql ../db/seeds/S1__maestras.sql; do
+            PGPASSWORD=sippt_ci psql -h localhost -U sippt -d sippt_test \
+              -v ON_ERROR_STOP=1 -q -f "$archivo"
+          done
+
+      - name: Pruebas unitarias y de feature con cobertura
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_USERNAME: sippt
+          DB_PASSWORD: sippt_ci
+        run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+
+      - name: Verificar la pureza del nucleo
+        # Redundante con PurezaDelNucleoTest, y a proposito: si alguien
+        # desactivara esa prueba, el pipeline seguiria impidiendo que el
+        # dominio dependa del framework.
+        run: |
+          if grep -rnE "^use (Illuminate|Laravel|PhpMqtt|Symfony)\\\\" src/Domain/; then
+            echo "El nucleo de dominio no puede depender del framework"
+            exit 1
+          fi
+          echo "src/Domain permanece libre de dependencias de infraestructura"
+
+      - name: Guardar el reporte de cobertura
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cobertura-backend
+          path: backend-core/coverage.xml
+          if-no-files-found: ignore
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Servicio de ingesta — Python 3.12
+  # ──────────────────────────────────────────────────────────────────────────
+  ingesta:
+    name: Ingesta (Ruff · pytest)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ingesta-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ingesta-service/requirements.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Linter (Ruff)
+        run: ruff check .
+
+      - name: Linter del simulador y la suite de integracion
+        # Viven fuera de ingesta-service pero son codigo Python del proyecto, y
+        # el contenedor de ingesta es el unico con las dependencias para
+        # ejecutarlos. Sin este paso quedarian sin revisar.
+        working-directory: .
+        run: ruff check scripts tests-integracion --config ingesta-service/pyproject.toml
+
+      - name: Pruebas con cobertura
+        # El umbral del 80 % esta en pyproject.toml: pytest falla solo si baja.
+        run: pytest -q
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Tablero — Next.js 14 / Node 20
+  # ──────────────────────────────────────────────────────────────────────────
+  dashboard:
+    name: Tablero (ESLint · TypeScript · vitest · build)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: dashboard
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+
+      - name: Linter (ESLint)
+        run: npx next lint
+
+      - name: Tipos (TypeScript estricto)
+        run: npx tsc --noEmit
+
+      - name: Pruebas de interfaz
+        run: npx vitest run
+
+      - name: Construccion de produccion
+        run: npx next build
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Contrato de la API
+  # ──────────────────────────────────────────────────────────────────────────
+  contrato:
+    name: Contrato OpenAPI (Spectral)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validar docs/openapi.yaml
+        run: npx --yes @stoplight/spectral-cli lint docs/openapi.yaml --ruleset .spectral.yaml
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Puerta final
+  #
+  # Es el único check que conviene exigir en la protección de rama: si se
+  # listaran los cinco por separado, añadir un job nuevo obligaría a tocar la
+  # configuración de GitHub cada vez.
+  # ──────────────────────────────────────────────────────────────────────────
+  verificacion:
+    name: Verificacion completa
+    runs-on: ubuntu-latest
+    needs: [migraciones, backend, ingesta, dashboard, contrato]
+    if: always()
+
+    steps:
+      - name: Comprobar que ningun trabajo fallo
+        run: |
+          echo "migraciones: ${{ needs.migraciones.result }}"
+          echo "backend:     ${{ needs.backend.result }}"
+          echo "ingesta:     ${{ needs.ingesta.result }}"
+          echo "dashboard:   ${{ needs.dashboard.result }}"
+          echo "contrato:    ${{ needs.contrato.result }}"
+
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] || \
+             [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "El pipeline no esta en verde: no se puede fusionar."
+            exit 1
+          fi
+
+          echo "Pipeline en verde."
