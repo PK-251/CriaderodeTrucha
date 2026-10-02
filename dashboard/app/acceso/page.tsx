@@ -19,14 +19,11 @@ export default function Acceso() {
   return (
     <main className="acceso">
       <div className="acceso__caja">
-        <h1 className="cabecera__titulo" style={{ marginBottom: 4 }}>
-          SIPPT
-        </h1>
-        <p className="cabecera__sub" style={{ marginBottom: 18 }}>
-          Tablero de estanques · Primer Incremento
-        </p>
+        <p className="acceso__marca">SIPPT</p>
+        <h1 className="acceso__titulo">Tablero de estanques</h1>
+        <p className="acceso__sub">Primer Incremento · monitoreo de la piscigranja</p>
 
-        <form action={enviar} className="formulario" style={{ borderTop: 0, paddingTop: 0 }}>
+        <form action={enviar} className="formulario acceso__formulario">
           <div className="campo">
             <label className="campo__etiqueta" htmlFor="email">
               Correo

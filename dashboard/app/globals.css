@@ -1117,10 +1117,47 @@ select.campo__entrada {
 /* ── Acceso ───────────────────────────────────────────────────────────────── */
 
 .acceso {
+  /* Color de marca, no de rol: antes de iniciar sesión nadie tiene rol, y el
+     azul del operador hacía parecer que ya se estaba en su vista. Azul
+     petróleo — agua profunda — distinto de los tres acentos y del semáforo. */
+  --acento: #0e6a78;
+  --acento-tinta: #ffffff;
+
   min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 24px 16px;
+  padding: 24px max(16px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  background: radial-gradient(
+      120% 70% at 50% 0%,
+      color-mix(in srgb, var(--acento) 9%, transparent),
+      transparent 70%
+    ),
+    var(--plano);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema='claro']) .acceso {
+    --acento: #3aa3b3;
+    /* Sobre el petróleo claro del modo oscuro, el texto blanco no llega a
+       3:1; la tinta oscura sí. */
+    --acento-tinta: #0b0b0b;
+  }
+}
+:root[data-tema='oscuro'] .acceso {
+  --acento: #3aa3b3;
+  --acento-tinta: #0b0b0b;
+}
+
+/* La misma franja de borde a borde que llevan las vistas de rol */
+.acceso::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--acento);
 }
 
 .acceso__caja {
@@ -1128,9 +1165,42 @@ select.campo__entrada {
   max-width: 360px;
   background: var(--superficie);
   border: 1px solid var(--borde);
+  border-top: 3px solid var(--acento);
   border-radius: var(--radio);
-  box-shadow: var(--sombra);
-  padding: 22px;
+  box-shadow: 0 1px 2px rgba(60, 52, 40, 0.06), 0 12px 32px -12px rgba(14, 106, 120, 0.25);
+  padding: 24px 22px 22px;
+}
+
+.acceso__marca {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--acento);
+}
+
+.acceso__titulo {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+
+.acceso__sub {
+  margin: 4px 0 20px;
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+.acceso__formulario {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+  gap: 12px;
+}
+
+.acceso__formulario .boton {
+  margin-top: 4px;
 }
 
 .solo-lectores {
