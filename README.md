@@ -49,6 +49,10 @@ Cada bloque es abordable por separado una vez cerrado el contrato
 Detalle de las trece fases, con su DoD y el comando que lo verifica:
 [`docs/BLOQUES.md`](docs/BLOQUES.md).
 
+Para presentar el trabajo —metodología, estructura, decisiones y resultados
+medidos, con las preguntas que conviene anticipar—:
+[`docs/GUIA_DE_EXPOSICION.md`](docs/GUIA_DE_EXPOSICION.md).
+
 ### Fuera del alcance
 
 Modelo predictivo de aprendizaje automático, cálculo de ración óptima y FCR,
